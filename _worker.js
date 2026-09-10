@@ -68,11 +68,16 @@ export default {
       let extracted = null, extractedModel = null, leaks = 0;
 
       for (const model of models) {
-        const upstream = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { Authorization: 'Bearer ' + env.NVIDIA_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ model, messages, temperature: 0.6, top_p: 0.9, max_tokens: 280, stream: false })
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
+        try {
+          const upstream = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + env.NVIDIA_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ model, messages, temperature: 0.6, top_p: 0.9, max_tokens: 280, stream: false }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
 
         if (!upstream.ok) {
           lastStatus = upstream.status; lastModel = model;
@@ -93,6 +98,15 @@ export default {
           continue;
         }
         return json({ reply, model });
+        } catch (e) {
+          clearTimeout(timeout);
+          lastStatus = 0; lastModel = model;
+          lastDetail = e.message || String(e);
+          if (lastDetail.includes('timeout') || lastDetail.includes('abort')) {
+            lastStatus = 524;
+          }
+          continue;
+        }
       }
 
       if (extracted) return json({ reply: extracted, model: (extractedModel || 'unknown') + ' (draft-extracted)' });
