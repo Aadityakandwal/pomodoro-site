@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pomodoro-doro.pages.dev/sitemap.xml
