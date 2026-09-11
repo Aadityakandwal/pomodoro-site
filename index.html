@@ -103,10 +103,12 @@ body[data-theme="oled"] .haze-layer{opacity:.3 !important}
 .hz-long .h1{left:-40%;top:44%;background:radial-gradient(ellipse,rgba(140,175,255,.14),transparent 70%);animation:drift 80s ease-in-out infinite alternate}
 .hz-long .h2{left:-10%;top:60%;background:radial-gradient(ellipse,rgba(255,225,160,.07),transparent 70%);animation:drift 105s ease-in-out infinite alternate-reverse}
 @keyframes drift{from{transform:translateX(-6%)}to{transform:translateX(8%)}}
-.custom-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1s ease}
+.custom-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1s ease;z-index:0}
 .custom-bg.on{opacity:1}
-.custom-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,6,8,.5),rgba(10,6,8,.22) 42%,rgba(8,5,6,.68))}
-body[data-theme="light"] .custom-bg::after{background:linear-gradient(180deg,rgba(255,250,240,.35),rgba(255,250,240,.15) 42%,rgba(240,227,207,.55))}
+.custom-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,6,8,var(--bg-darkness,.5)),rgba(10,6,8,calc(var(--bg-darkness,.5)*.44)) 42%,rgba(8,5,6,calc(var(--bg-darkness,.5)*1.36)))}
+body[data-theme="light"] .custom-bg::after{background:linear-gradient(180deg,rgba(255,250,240,calc(var(--bg-darkness,.5)*.7)),rgba(255,250,240,calc(var(--bg-darkness,.5)*.3)) 42%,rgba(240,227,207,calc(var(--bg-darkness,.5)*1.1)))}
+.custom-bg-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease;pointer-events:none;z-index:0}
+.custom-bg-video.on{opacity:1}
 body.has-bg .sky,body.has-bg .haze-layer,body.has-bg .sun{opacity:0 !important}
 #flies{position:absolute;inset:0;width:100%;height:100%}
 .grain{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
@@ -412,6 +414,7 @@ body.idle{cursor:none}
   <div class="haze-layer hz-short"><div class="haze h1"></div><div class="haze h2"></div></div>
   <div class="haze-layer hz-long"><div class="haze h1"></div><div class="haze h2"></div></div>
   <div class="custom-bg" id="customBg"></div>
+  <video id="customBgVideo" autoplay loop muted playsinline class="custom-bg-video"></video>
   <canvas id="flies"></canvas>
   <div class="grain"></div><div class="vignette"></div>
 </div>
@@ -604,10 +607,13 @@ body.idle{cursor:none}
   <label class="row">break (min) <input type="number" id="cfgShort" min="1" max="60"></label>
   <label class="row">long break (min) <input type="number" id="cfgLong" min="1" max="90"></label>
   <label class="row">auto-start next <input type="checkbox" id="cfgAuto"></label>
-  <div class="row">background image
+  <div class="row">background media (image/video)
     <span class="rowbtns"><button class="chip" id="bgPick">choose…</button><button class="chip" id="bgClear">reset</button></span>
   </div>
-  <input type="file" id="bgFile" accept="image/*" hidden>
+  <label class="row" style="font-size:.78rem">bg darkness
+    <input type="range" id="cfgBgDark" min="0.1" max="0.85" step="0.05" value="0.5" style="width:100px;accent-color:var(--accent)">
+  </label>
+  <input type="file" id="bgFile" accept="image/*,video/*" hidden>
 </div>
 
 <div id="toast" role="status" aria-live="polite"></div>
@@ -807,7 +813,7 @@ async function iaStreamUrl(id){const r=await fetch('https://archive.org/metadata
 const advIndex=(l,c,d)=>l>0?(c+d+l)%l:-1;
 
 /* ---------- config ---------- */
-const cfg=Object.assign({focus:25,short:5,long:15,auto:true,vol:.6,muted:false,loop:true,sync:true,theme:'dark',mini:false,
+const cfg=Object.assign({focus:25,short:5,long:15,auto:true,vol:.6,muted:false,loop:true,sync:true,theme:'dark',mini:false,bgDarkness:.5,
   mixer:{rain:0,fire:0,coffee:0,white:0,brown:0,muted:{}}},JSON.parse(localStorage.getItem('pdoro.cfg')||'{}'));
 const saveCfg=()=>{try{localStorage.setItem('pdoro.cfg',JSON.stringify(cfg))}catch(e){}};
 const engine=new PomodoroEngine({durations:{focus:cfg.focus*60e3,short:cfg.short*60e3,long:cfg.long*60e3},now:()=>Date.now()});
@@ -1112,30 +1118,113 @@ on('#gearBtn','click',e=>{e.stopPropagation();
 pop.addEventListener('click',e=>e.stopPropagation());
 addEventListener('click',e=>{if(!pop.contains(e.target)&&!$('#gearBtn').contains(e.target)){
   pop.classList.remove('open');pop.setAttribute('aria-hidden','true')}});
-function fillSettings(){$('#cfgFocus').value=cfg.focus;$('#cfgShort').value=cfg.short;$('#cfgLong').value=cfg.long;$('#cfgAuto').checked=cfg.auto}
+function fillSettings(){
+  $('#cfgFocus').value=cfg.focus;$('#cfgShort').value=cfg.short;$('#cfgLong').value=cfg.long;
+  $('#cfgAuto').checked=cfg.auto;
+  const bd=$('#cfgBgDark');if(bd)bd.value=cfg.bgDarkness??.5;
+}
 fillSettings();
 pop.addEventListener('change',e=>{if(e.target.id==='bgFile')return;
   cfg.focus=clamp(+$('#cfgFocus').value||25,1,180);cfg.short=clamp(+$('#cfgShort').value||5,1,60);
-  cfg.long=clamp(+$('#cfgLong').value||15,1,90);cfg.auto=$('#cfgAuto').checked;saveCfg();fillSettings();
+  cfg.long=clamp(+$('#cfgLong').value||15,1,90);cfg.auto=$('#cfgAuto').checked;
+  const bd=$('#cfgBgDark');if(bd)cfg.bgDarkness=clamp(+bd.value||.5,.1,.85);
+  saveCfg();fillSettings();applyBgOverlay(cfg.bgDarkness);
   engine.setDurations({focus:cfg.focus*60e3,short:cfg.short*60e3,long:cfg.long*60e3});render();toast('settings saved')});
+pop.addEventListener('input',e=>{
+  if(e.target.id==='cfgBgDark'){
+    cfg.bgDarkness=clamp(+e.target.value||.5,.1,.85);saveCfg();applyBgOverlay(cfg.bgDarkness);
+  }
+});
 
-/* ---------- background image ---------- */
-function setCustomBg(u){const el=$('#customBg');if(!el)return;
-  if(u){el.style.backgroundImage=`url("${u}")`;el.classList.add('on');document.body.classList.add('has-bg')}
-  else{el.style.backgroundImage='';el.classList.remove('on');document.body.classList.remove('has-bg')}}
+/* ---------- background media (image/video) & IndexedDB ---------- */
+let currentBgObjectUrl=null;
+function idbBgOpen(){return new Promise((res,rej)=>{const rq=indexedDB.open('pdoro-bg-db',1);
+  rq.onupgradeneeded=()=>{if(!rq.result.objectStoreNames.contains('bg'))rq.result.createObjectStore('bg')};
+  rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error)})}
+async function idbBgPut(blob,type,name){try{const db=await idbBgOpen();
+  await new Promise((res,rej)=>{const tx=db.transaction('bg','readwrite');
+    tx.objectStore('bg').put({blob,type,name,time:Date.now()},'currentBg');tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}catch(e){}}
+async function idbBgGet(){try{const db=await idbBgOpen();
+  return await new Promise((res,rej)=>{const rq=db.transaction('bg','readonly').objectStore('bg').get('currentBg');
+    rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>rej(rq.error)})}catch(e){return null}}
+async function idbBgClear(){try{const db=await idbBgOpen();db.transaction('bg','readwrite').objectStore('bg').clear()}catch(e){}}
+
+function applyBgOverlay(val){
+  const dark=clamp(val??.5,.1,.85);
+  const imgEl=$('#customBg');
+  if(imgEl)imgEl.style.setProperty('--bg-darkness',dark);
+}
+
+function setCustomBgMedia(data){
+  const imgEl=$('#customBg'),vidEl=$('#customBgVideo');
+  if(!imgEl||!vidEl)return;
+  if(currentBgObjectUrl){URL.revokeObjectURL(currentBgObjectUrl);currentBgObjectUrl=null}
+  if(!data){
+    imgEl.style.backgroundImage='';imgEl.classList.remove('on');
+    vidEl.pause();vidEl.removeAttribute('src');vidEl.load();vidEl.classList.remove('on');
+    document.body.classList.remove('has-bg');return;
+  }
+  document.body.classList.add('has-bg');
+  applyBgOverlay(cfg.bgDarkness);
+
+  const isVid = data.type==='video' || (data.blob && data.blob.type.startsWith('video/'));
+  if(isVid){
+    imgEl.style.backgroundImage='';imgEl.classList.remove('on');
+    let srcUrl = data.url;
+    if(data.blob){srcUrl=URL.createObjectURL(data.blob);currentBgObjectUrl=srcUrl}
+    vidEl.src=srcUrl;vidEl.loop=true;vidEl.muted=true;vidEl.playsInline=true;
+    vidEl.classList.add('on');
+    vidEl.play().catch(e=>console.warn('[bg vid play]',e));
+  } else {
+    vidEl.pause();vidEl.removeAttribute('src');vidEl.load();vidEl.classList.remove('on');
+    let srcUrl = data.url;
+    if(data.blob){srcUrl=URL.createObjectURL(data.blob);currentBgObjectUrl=srcUrl}
+    imgEl.style.backgroundImage=`url("${srcUrl}")`;imgEl.classList.add('on');
+  }
+}
+
 on('#bgPick','click',()=>$('#bgFile').click());
-on('#bgClear','click',()=>{localStorage.removeItem('pdoro.bg');setCustomBg(null);toast('background reset')});
-on('#bgFile','change',e=>{const f=e.target.files[0];if(!f)return;
-  const fr=new FileReader();
-  fr.onload=()=>{const img=new Image();
-    img.onload=()=>{const max=1600,s=Math.min(1,max/Math.max(img.width,img.height)),
-      w=Math.round(img.width*s),h=Math.round(img.height*s);
-      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      const u=cv.toDataURL('image/jpeg',.82);setCustomBg(u);
-      try{localStorage.setItem('pdoro.bg',u);toast('background saved')}catch(err){toast('background set for this session')}};
-    img.onerror=()=>toast("couldn't read that image");img.src=fr.result};
-  fr.readAsDataURL(f);e.target.value=''});
+on('#bgClear','click',async ()=>{
+  localStorage.removeItem('pdoro.bg');
+  await idbBgClear();
+  setCustomBgMedia(null);
+  toast('background reset');
+});
+
+on('#bgFile','change',async e=>{
+  const f=e.target.files[0];if(!f)return;
+  if(f.type.startsWith('video/')){
+    toast('loading background video…');
+    await idbBgPut(f,'video',f.name);
+    setCustomBgMedia({blob:f,type:'video'});
+    toast('video background playing');
+  } else if(f.type.startsWith('image/')){
+    toast('loading background image…');
+    const fr=new FileReader();
+    fr.onload=async ()=>{
+      const img=new Image();
+      img.onload=async ()=>{
+        const max=1920,s=Math.min(1,max/Math.max(img.width,img.height)),
+          w=Math.round(img.width*s),h=Math.round(img.height*s);
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        cv.toBlob(async blob=>{
+          if(blob){
+            await idbBgPut(blob,'image',f.name);
+            setCustomBgMedia({blob,type:'image'});
+            toast('image background saved');
+          }
+        },'image/jpeg',0.88);
+      };
+      img.onerror=()=>toast("couldn't read that image");
+      img.src=fr.result;
+    };
+    fr.readAsDataURL(f);
+  } else {
+    toast('select an image or video file');
+  }
+  e.target.value='';
+});
 
 /* ---------- keys ---------- */
 addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
@@ -1179,6 +1268,46 @@ function aiPush(m){
   if(aiHistory.length===1)box.innerHTML='';
   box.appendChild(aiRenderMsg(m));box.scrollTop=box.scrollHeight;
 }
+function aiGenerateOfflineReply(text){
+  const lower=text.toLowerCase();
+  const at=tasks.find(t=>t.id===activeTask&&!t.done);
+  const taskTitle=at?at.text:'your study session';
+  const s=loadStats(),tISO=todayISO(),d=(s.day&&s.day.date===tISO)?s.day:{count:0,min:0};
+  const phase=engine.phase||'focus';
+  let reply='';
+
+  if(lower.includes('explain')||lower.includes('simple terms')){
+    reply=`<b>${esc(taskTitle)}</b> is your primary focus right now.\n\n`+
+      `• <b>Core Concept:</b> Break "${esc(taskTitle)}" into tiny 25-minute steps.\n`+
+      `• <b>Current Session:</b> Stay focused on one single action item during this ${phase} session.\n`+
+      `• <b>Goal:</b> Clear all distractions until the chime sounds!`;
+  } else if(lower.includes('quiz')||lower.includes('question')){
+    const questions=[
+      `What is the very next 5-minute action you need to take for <b>${esc(taskTitle)}</b>?`,
+      `What main distraction might pull you away from <b>${esc(taskTitle)}</b>, and how will you prevent it?`,
+      `In one sentence, what will completing <b>${esc(taskTitle)}</b> allow you to accomplish?`
+    ];
+    const q=questions[Math.floor(Math.random()*questions.length)];
+    reply=`<b>Question:</b> ${q}\n\n<i>Reply with your answer and keep your momentum going!</i>`;
+  } else if(lower.includes('plan')||lower.includes('study plan')){
+    reply=`<b>3-Pomodoro Plan for "${esc(taskTitle)}":</b>\n\n`+
+      `• <b>Pomo 1:</b> Clear setup & outline. Draft the foundation without overthinking.\n`+
+      `• <b>Pomo 2:</b> Deep execution block. Complete the core heavy lifting.\n` +
+      `• <b>Pomo 3:</b> Review, polish, and verify.\n\n`+
+      `You've already completed <b>${d.count}</b> pomodoro(s) today (${d.min} mins). Keep it up!`;
+  } else if(lower.includes('distract')||lower.includes('refocus')){
+    reply=`Take a deep breath. 🧘\n\n`+
+      `• <b>Step 1:</b> Close all non-study tabs right now.\n`+
+      `• <b>Step 2:</b> Write down any distracting thoughts on paper to check later.\n`+
+      `• <b>Step 3:</b> Focus on <b>${esc(taskTitle)}</b> for just 5 minutes. The flow state will follow!`;
+  } else {
+    reply=`Great progress on <b>${esc(taskTitle)}</b>! You've completed <b>${d.count} pomodoro(s)</b> (${d.min} mins) today.\n\n`+
+      `• <b>Current Phase:</b> ${phase.toUpperCase()} mode.\n`+
+      `• <b>Coach Tip:</b> Focus on one small step at a time. High quality focus beats long hours! What is your next micro-step?`;
+  }
+  aiPush({role:'assistant',content:reply,via:'local coach'});
+}
+
 async function aiSendText(text){
   text=(text||'').trim();if(!text)return;
   aiPush({role:'user',content:text});
@@ -1192,11 +1321,14 @@ async function aiSendText(text){
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
     const d=await r.json().catch(()=>({}));
     typing.remove();
-    if(!r.ok||!d.reply)throw new Error((d.error||('HTTP '+r.status))+(d.detail?' — '+d.detail:''));
-    aiPush({role:'assistant',content:d.reply,via:d.model||''});
+    if(!r.ok||!d.reply){
+      aiGenerateOfflineReply(text);
+    } else {
+      aiPush({role:'assistant',content:d.reply,via:d.model||''});
+    }
   }catch(e){
     typing.remove();
-    aiPush({role:'assistant',err:true,content:'coach unreachable — '+e.message+'. checklist: (1) _worker.js deployed, (2) NVIDIA_API_KEY secret set, (3) redeployed.'});
+    aiGenerateOfflineReply(text);
   }
   $('#aiSend').disabled=false;$('#aiInput').focus();
 }
@@ -1228,7 +1360,18 @@ on('#aiClear','click',()=>{aiHistory=[];saveAI();aiRenderAll()});
 /* ---------- init ---------- */
 applyTheme(cfg.theme||'dark');
 $('#loopChk').checked=cfg.loop;$('#syncChk').checked=cfg.sync;
-const savedBg=localStorage.getItem('pdoro.bg');if(savedBg)setCustomBg(savedBg);
+applyBgOverlay(cfg.bgDarkness);
+
+(async ()=>{
+  const bgData = await idbBgGet();
+  if(bgData && bgData.blob){
+    setCustomBgMedia(bgData);
+  } else {
+    const savedBg=localStorage.getItem('pdoro.bg');
+    if(savedBg)setCustomBgMedia({url:savedBg,type:'image'});
+  }
+})();
+
 if(cfg.mini)setMini(true);
 idbAll().then(rows=>{rows.forEach(r=>playlist.push({id:r.id,kind:'local',title:r.name,url:URL.createObjectURL(r.blob)}));renderPlaylist()});
 renderMixer();renderTasks();applyPhase();render();placeSun();renderStats();renderHeatmap();updateMediaSession();updateMusicTrigger();
