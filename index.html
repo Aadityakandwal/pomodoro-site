@@ -110,6 +110,9 @@ body[data-theme="light"] .custom-bg::after{background:linear-gradient(180deg,rgb
 .custom-bg-video-wrap{position:absolute;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;z-index:0}
 .custom-bg-video-wrap.on{opacity:1}
 .custom-bg-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.yt-bg-wrap{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1s ease;z-index:0}
+.yt-bg-wrap.on{opacity:1}
+.yt-bg-wrap iframe{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-height:100vh;min-width:177.77vh;transform:translate(-50%,-50%) scale(1.18);pointer-events:none;border:none}
 .custom-bg-video-wrap::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,6,8,var(--bg-darkness,.5)),rgba(10,6,8,calc(var(--bg-darkness,.5)*.44)) 42%,rgba(8,5,6,calc(var(--bg-darkness,.5)*1.36)))}
 body[data-theme="light"] .custom-bg-video-wrap::after{background:linear-gradient(180deg,rgba(255,250,240,calc(var(--bg-darkness,.5)*.7)),rgba(255,250,240,calc(var(--bg-darkness,.5)*.3)) 42%,rgba(240,227,207,calc(var(--bg-darkness,.5)*1.1)))}
 body.has-bg .sky,body.has-bg .haze-layer,body.has-bg .sun{opacity:0 !important}
@@ -425,6 +428,7 @@ body.idle{cursor:none}
   <div class="custom-bg" id="customBg"></div>
   <div class="custom-bg-video-wrap" id="customBgVideoWrap">
     <video id="customBgVideo" autoplay loop muted playsinline class="custom-bg-video"></video>
+    <div id="ytBgWrap" class="yt-bg-wrap"><div id="ytBgPlayer"></div></div>
   </div>
   <canvas id="flies"></canvas>
   <div class="grain"></div><div class="vignette"></div>
@@ -513,7 +517,7 @@ body.idle{cursor:none}
   <div class="drawer-body">
     <div class="section">
       <div class="section-label">search & play</div>
-      <div class="search-box"><input id="musicInput" placeholder="search any song, or paste soundcloud…" spellcheck="false"><button class="go" id="goBtn">go</button></div>
+      <div class="search-box"><input id="musicInput" placeholder="search song, paste YouTube or SoundCloud link…" spellcheck="false"><button class="go" id="goBtn">go</button></div>
       <ul id="results" class="search-drop" hidden></ul>
     </div>
     <div class="section">
@@ -637,6 +641,10 @@ body.idle{cursor:none}
       <button class="chip" id="bgPick" title="choose image or video">🖼️ choose media</button>
       <button class="chip" id="bgAudioBtn" title="toggle video sound">🔇 audio off</button>
       <button class="chip" id="bgClear" title="reset background">reset</button>
+    </div>
+    <div style="display:flex;gap:6px;margin:8px 0 6px;">
+      <input id="ytBgInput" placeholder="paste YouTube video link…" spellcheck="false" style="flex:1;min-width:0;background:var(--ink-05);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:.78rem;outline:none;">
+      <button class="chip solid" id="ytBgApplyBtn">apply</button>
     </div>
     <label class="row range-row">
       <span>bg darkness</span>
@@ -829,8 +837,8 @@ const AudioKit=(()=>{
 })();
 
 /* ---------- music sources ---------- */
-function parseSC(u){u=(u||'').trim();return/^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/[\w-]+/i.test(u)?u:null}
-function parseYT(u){u=(u||'').trim();return/(?:youtube\.com|youtu\.be|music\.youtube\.com)/i.test(u)}
+function parseYT(u){u=(u||'').trim();const m=u.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|music\.youtube\.com\/watch\?v=)([^"&?\/ ]{11})/i);return m?m[1]:(parseYTQuick(u)?u:null)}
+function parseYTQuick(u){return/(?:youtube\.com|youtu\.be|music\.youtube\.com)/i.test(u||'')}
 function classifyInput(v){v=(v||'').trim();if(!v)return'empty';if(parseSC(v))return'sc';if(parseYT(v))return'yt';return'search'}
 function pickAudioFile(files){const pref=['VBR MP3','MP3','Ogg Vorbis','AAC'];
   for(const f of pref){const h=(files||[]).find(x=>x&&x.format===f&&x.name);if(h)return h}
@@ -868,7 +876,7 @@ function updateMusicTrigger(){const l=$('#musicTriggerLabel'),it=playlist[curInd
 function loadSCApi(){if(window.SC&&window.SC.Widget)return Promise.resolve();
   if(!scApi)scApi=new Promise(res=>{const s=document.createElement('script');s.src='https://w.soundcloud.com/player/api.js';s.onload=res;document.head.appendChild(s)});return scApi}
 function renderPlaylist(){const ul=$('#plList');if(!ul)return;
-  const icon=k=>k==='local'?'📁':k==='sc'?'☁':'';
+  const icon=k=>k==='local'?'📁':k==='sc'?'☁':k==='yt'?'▶':'';
   ul.innerHTML=playlist.map((it,i)=>`<li data-i="${i}" class="${i===curIndex?'cur':''}"><span class="k">${icon(it.kind)}</span><span class="pl-t">${esc(it.title)}</span><button class="t-del" title="remove">✕</button></li>`).join('');
   const np=$('#npSection');if(np)np.hidden=curIndex<0;updateMusicTrigger()}
 async function playIndex(i){
@@ -876,7 +884,7 @@ async function playIndex(i){
   scFrame.classList.remove('active');
   if(scWidget){try{scWidget.unbind&&scWidget.unbind(SC.Widget.Events.PLAY)}catch(e){}AudioKit.unregisterSCWidget();scWidget=null}
   audioEl.pause();audioEl.removeAttribute('src');audioEl.load();audioEl.loop=cfg.loop;
-  const sr=$('#seekRow');if(sr)sr.style.display=it.kind==='sc'?'none':'flex';
+  const sr=$('#seekRow');if(sr)sr.style.display=(it.kind==='sc'||it.kind==='yt')?'none':'flex';
   if(it.kind==='local'){setTitle(it.title,'your library');setStatus('');audioEl.src=it.url;
     try{await audioEl.play()}catch(e){setStatus('press ▶',true)}}
   else if(it.kind==='ia'){setTitle(it.title,'archive.org');setStatus('fetching…');
@@ -892,22 +900,29 @@ async function playIndex(i){
       scWidget.bind(SC.Widget.Events.FINISH,()=>{if(cfg.loop){try{scWidget.seekTo(0);scWidget.play()}catch(e){}}
         else if(playlist.length>1)playIndex(advIndex(playlist.length,curIndex,1));else setPlayingUI(false)})}
     catch(e){setStatus('soundcloud failed',true)}}
+  else if(it.kind==='yt'){
+    setTitle(it.title,'youtube');setStatus('playing video background…');
+    setYTBgMedia(it.ytId);
+    if(!cfg.bgAudio){cfg.bgAudio=true;saveCfg();fillSettings();if(ytBgPlayer&&ytBgPlayer.unMute)try{ytBgPlayer.unMute()}catch(e){}}
+  }
   updateMusicTrigger();updateMediaSession()}
 function musicSync(){if(curIndex<0||!cfg.sync)return;const k=curKind();
   if(k==='sc'&&scWidget){try{engine.running?scWidget.play():scWidget.pause()}catch(e){}}
+  else if(k==='yt'&&ytBgPlayer){try{engine.running?(ytBgPlayer.playVideo&&ytBgPlayer.playVideo()):(ytBgPlayer.pauseVideo&&ytBgPlayer.pauseVideo())}catch(e){}}
   else{try{engine.running?audioEl.play().catch(()=>{}):audioEl.pause()}catch(e){}}}
-audioEl.addEventListener('play',()=>{if(curKind()!=='sc'){setPlayingUI(true);updateMediaSession()}});
-audioEl.addEventListener('pause',()=>{if(curKind()!=='sc')setPlayingUI(false)});
-audioEl.addEventListener('ended',()=>{if(audioEl.loop||curKind()==='sc')return;
+audioEl.addEventListener('play',()=>{if(curKind()!=='sc'&&curKind()!=='yt'){setPlayingUI(true);updateMediaSession()}});
+audioEl.addEventListener('pause',()=>{if(curKind()!=='sc'&&curKind()!=='yt')setPlayingUI(false)});
+audioEl.addEventListener('ended',()=>{if(audioEl.loop||curKind()==='sc'||curKind()==='yt')return;
   if(playlist.length<=1){setPlayingUI(false);setStatus('ended');return}playIndex(advIndex(playlist.length,curIndex,1))});
-audioEl.addEventListener('error',()=>{if(curIndex>=0&&curKind()!=='sc')setStatus('stream error',true)});
-audioEl.addEventListener('timeupdate',()=>{if(seeking||curKind()==='sc')return;
+audioEl.addEventListener('error',()=>{if(curIndex>=0&&curKind()!=='sc'&&curKind()!=='yt')setStatus('stream error',true)});
+audioEl.addEventListener('timeupdate',()=>{if(seeking||curKind()==='sc'||curKind()==='yt')return;
   const d=audioEl.duration||0,c=audioEl.currentTime||0;
   $('#curT').textContent=fmtClock(c);$('#durT').textContent=fmtClock(d);if(d>0)$('#seek').value=(c/d*100).toFixed(2)});
 on('#seek','input',e=>{seeking=true;$('#curT').textContent=fmtClock((audioEl.duration||0)*e.target.value/100)});
 on('#seek','change',e=>{const d=audioEl.duration||0;if(d>0)audioEl.currentTime=d*e.target.value/100;seeking=false});
 on('#playBtn','click',()=>{if(curIndex<0){if(playlist.length)playIndex(0);return}
   if(curKind()==='sc'&&scWidget){try{scWidget.toggle()}catch(e){}return}
+  if(curKind()==='yt'&&ytBgPlayer){try{const state=ytBgPlayer.getPlayerState();if(state===1)ytBgPlayer.pauseVideo();else ytBgPlayer.playVideo()}catch(e){}return}
   if(audioEl.paused)audioEl.play().catch(()=>setStatus('press ▶ again',true));else audioEl.pause()});
 on('#prevBtn','click',()=>playIndex(advIndex(playlist.length,curIndex,-1)));
 on('#nextBtn','click',()=>playIndex(advIndex(playlist.length,curIndex,1)));
@@ -923,7 +938,15 @@ on('#clearAll','click',()=>{audioEl.pause();audioEl.removeAttribute('src');audio
   playlist=[];curIndex=-1;setPlayingUI(false);setStatus('');idbClear();renderPlaylist();toast('queue cleared')});
 async function go(){const v=$('#musicInput').value.trim();const kind=classifyInput(v);
   if(kind==='empty'){toast('type a song name or paste a link');return}
-  if(kind==='yt'){toast('YouTube blocked — try SoundCloud or the free archive');return}
+  $('#results').hidden=true;
+  if(kind==='yt'){
+    const ytId=parseYT(v);
+    if(!ytId||(ytId===v&&v.length!==11)){toast('invalid YouTube URL',true);return}
+    let title='YouTube Video ('+ytId+')';
+    try{const r=await fetch('https://noembed.com/embed?url='+encodeURIComponent('https://www.youtube.com/watch?v='+ytId));
+      if(r.ok){const d=await r.json();if(d.title)title=d.title}}catch(e){}
+    playlist.push({id:'Y'+Date.now().toString(36),kind:'yt',ytId,url:v,title});renderPlaylist();playIndex(playlist.length-1);
+    $('#musicInput').value='';toast('YouTube video playing in background');return}
   $('#results').hidden=true;
   if(kind==='sc'){let title=v.split('/').pop().replace(/-/g,' ')||'SoundCloud track';
     try{const r=await fetch('https://soundcloud.com/oembed?format=json&url='+encodeURIComponent(v));if(r.ok){const d=await r.json();title=d.title||title}}catch(e){}
@@ -1174,8 +1197,60 @@ pop.addEventListener('input',e=>{
   }
 });
 
-/* ---------- background media (image/video) & IndexedDB ---------- */
+/* ---------- background media (image/video/YouTube) & IndexedDB ---------- */
 let currentBgObjectUrl=null;
+let ytApiPromise=null;
+function loadYTApi(){
+  if(window.YT&&window.YT.Player)return Promise.resolve();
+  if(!ytApiPromise){
+    ytApiPromise=new Promise(res=>{
+      const oldReady=window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady=()=>{if(typeof oldReady==='function')oldReady();res()};
+      const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';
+      s.onload=()=>{if(window.YT&&window.YT.Player)res()};
+      document.head.appendChild(s);
+    });
+  }
+  return ytApiPromise;
+}
+
+let ytBgPlayer=null;
+async function setYTBgMedia(ytId){
+  const ytWrap=$('#ytBgWrap'),imgEl=$('#customBg'),vidEl=$('#customBgVideo'),vidWrap=$('#customBgVideoWrap');
+  if(!ytId){
+    if(ytWrap)ytWrap.classList.remove('on');
+    if(ytBgPlayer&&typeof ytBgPlayer.stopVideo==='function'){try{ytBgPlayer.stopVideo()}catch(e){}}
+    cfg.ytBg='';saveCfg();return;
+  }
+  if(currentBgObjectUrl){URL.revokeObjectURL(currentBgObjectUrl);currentBgObjectUrl=null}
+  imgEl.style.backgroundImage='';imgEl.classList.remove('on');
+  vidEl.pause();vidEl.removeAttribute('src');vidEl.load();
+  document.body.classList.add('has-bg');
+  applyBgOverlay(cfg.bgDarkness);
+  if(vidWrap)vidWrap.classList.add('on');
+  if(ytWrap)ytWrap.classList.add('on');
+  cfg.ytBg=ytId;saveCfg();
+  await loadYTApi();
+  if(ytBgPlayer&&typeof ytBgPlayer.loadVideoById==='function'){
+    try{
+      ytBgPlayer.loadVideoById({videoId:ytId});
+      if(cfg.bgAudio)ytBgPlayer.unMute();else ytBgPlayer.mute();
+      ytBgPlayer.playVideo();
+    }catch(e){console.warn('[yt bg load]',e)}
+  }else{
+    try{
+      ytBgPlayer=new YT.Player('ytBgPlayer',{
+        videoId:ytId,
+        playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,loop:1,playlist:ytId,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3},
+        events:{
+          onReady:ev=>{ev.target.playVideo();if(cfg.bgAudio)ev.target.unMute();else ev.target.mute()},
+          onStateChange:ev=>{if(ev.data===0)ev.target.playVideo()}
+        }
+      });
+    }catch(e){console.warn('[yt bg init]',e)}
+  }
+}
+
 function idbBgOpen(){return new Promise((res,rej)=>{const rq=indexedDB.open('pdoro-bg-db',1);
   rq.onupgradeneeded=()=>{if(!rq.result.objectStoreNames.contains('bg'))rq.result.createObjectStore('bg')};
   rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error)})}
@@ -1205,6 +1280,7 @@ function setCustomBgMedia(data){
     if(vidWrap)vidWrap.classList.remove('on');
     document.body.classList.remove('has-bg');return;
   }
+  setYTBgMedia(null);
   document.body.classList.add('has-bg');
   applyBgOverlay(cfg.bgDarkness);
 
@@ -1235,6 +1311,9 @@ on('#bgAudioBtn','click',()=>{
   fillSettings();
   const vidEl=$('#customBgVideo');
   if(vidEl)vidEl.muted=!cfg.bgAudio;
+  if(ytBgPlayer){
+    try{if(cfg.bgAudio)ytBgPlayer.unMute();else ytBgPlayer.mute()}catch(e){}
+  }
   toast(cfg.bgAudio?'bg video sound on':'bg video sound muted');
 });
 
@@ -1242,9 +1321,21 @@ on('#bgPick','click',()=>$('#bgFile').click());
 on('#bgClear','click',async ()=>{
   localStorage.removeItem('pdoro.bg');
   await idbBgClear();
+  setYTBgMedia(null);
   setCustomBgMedia(null);
   toast('background reset');
 });
+
+on('#ytBgApplyBtn','click',()=>{
+  const v=($('#ytBgInput').value||'').trim();
+  if(!v){toast('enter a YouTube link');return}
+  const ytId=parseYT(v);
+  if(!ytId||(ytId===v&&v.length!==11)){toast('invalid YouTube URL',true);return}
+  setYTBgMedia(ytId);
+  $('#ytBgInput').value='';
+  toast('YouTube video background active');
+});
+on('#ytBgInput','keydown',e=>{if(e.key==='Enter')$('#ytBgApplyBtn').click()});
 
 on('#bgFile','change',async e=>{
   const f=e.target.files[0];if(!f)return;
@@ -1421,12 +1512,16 @@ $('#loopChk').checked=cfg.loop;$('#syncChk').checked=cfg.sync;
 applyBgOverlay(cfg.bgDarkness);
 
 (async ()=>{
-  const bgData = await idbBgGet();
-  if(bgData && bgData.blob){
-    setCustomBgMedia(bgData);
+  if(cfg.ytBg){
+    setYTBgMedia(cfg.ytBg);
   } else {
-    const savedBg=localStorage.getItem('pdoro.bg');
-    if(savedBg)setCustomBgMedia({url:savedBg,type:'image'});
+    const bgData = await idbBgGet();
+    if(bgData && bgData.blob){
+      setCustomBgMedia(bgData);
+    } else {
+      const savedBg=localStorage.getItem('pdoro.bg');
+      if(savedBg)setCustomBgMedia({url:savedBg,type:'image'});
+    }
   }
 })();
 
