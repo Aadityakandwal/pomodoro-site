@@ -107,8 +107,11 @@ body[data-theme="oled"] .haze-layer{opacity:.3 !important}
 .custom-bg.on{opacity:1}
 .custom-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,6,8,var(--bg-darkness,.5)),rgba(10,6,8,calc(var(--bg-darkness,.5)*.44)) 42%,rgba(8,5,6,calc(var(--bg-darkness,.5)*1.36)))}
 body[data-theme="light"] .custom-bg::after{background:linear-gradient(180deg,rgba(255,250,240,calc(var(--bg-darkness,.5)*.7)),rgba(255,250,240,calc(var(--bg-darkness,.5)*.3)) 42%,rgba(240,227,207,calc(var(--bg-darkness,.5)*1.1)))}
-.custom-bg-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease;pointer-events:none;z-index:0}
-.custom-bg-video.on{opacity:1}
+.custom-bg-video-wrap{position:absolute;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;z-index:0}
+.custom-bg-video-wrap.on{opacity:1}
+.custom-bg-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.custom-bg-video-wrap::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,6,8,var(--bg-darkness,.5)),rgba(10,6,8,calc(var(--bg-darkness,.5)*.44)) 42%,rgba(8,5,6,calc(var(--bg-darkness,.5)*1.36)))}
+body[data-theme="light"] .custom-bg-video-wrap::after{background:linear-gradient(180deg,rgba(255,250,240,calc(var(--bg-darkness,.5)*.7)),rgba(255,250,240,calc(var(--bg-darkness,.5)*.3)) 42%,rgba(240,227,207,calc(var(--bg-darkness,.5)*1.1)))}
 body.has-bg .sky,body.has-bg .haze-layer,body.has-bg .sun{opacity:0 !important}
 #flies{position:absolute;inset:0;width:100%;height:100%}
 .grain{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
@@ -414,7 +417,9 @@ body.idle{cursor:none}
   <div class="haze-layer hz-short"><div class="haze h1"></div><div class="haze h2"></div></div>
   <div class="haze-layer hz-long"><div class="haze h1"></div><div class="haze h2"></div></div>
   <div class="custom-bg" id="customBg"></div>
-  <video id="customBgVideo" autoplay loop muted playsinline class="custom-bg-video"></video>
+  <div class="custom-bg-video-wrap" id="customBgVideoWrap">
+    <video id="customBgVideo" autoplay loop muted playsinline class="custom-bg-video"></video>
+  </div>
   <canvas id="flies"></canvas>
   <div class="grain"></div><div class="vignette"></div>
 </div>
@@ -1152,31 +1157,39 @@ async function idbBgClear(){try{const db=await idbBgOpen();db.transaction('bg','
 function applyBgOverlay(val){
   const dark=clamp(val??.5,.1,.85);
   const imgEl=$('#customBg');
+  const vidWrap=$('#customBgVideoWrap');
   if(imgEl)imgEl.style.setProperty('--bg-darkness',dark);
+  if(vidWrap)vidWrap.style.setProperty('--bg-darkness',dark);
 }
 
 function setCustomBgMedia(data){
-  const imgEl=$('#customBg'),vidEl=$('#customBgVideo');
+  const imgEl=$('#customBg'),vidEl=$('#customBgVideo'),vidWrap=$('#customBgVideoWrap');
   if(!imgEl||!vidEl)return;
   if(currentBgObjectUrl){URL.revokeObjectURL(currentBgObjectUrl);currentBgObjectUrl=null}
   if(!data){
     imgEl.style.backgroundImage='';imgEl.classList.remove('on');
-    vidEl.pause();vidEl.removeAttribute('src');vidEl.load();vidEl.classList.remove('on');
+    vidEl.pause();vidEl.removeAttribute('src');vidEl.load();
+    if(vidWrap)vidWrap.classList.remove('on');
     document.body.classList.remove('has-bg');return;
   }
   document.body.classList.add('has-bg');
   applyBgOverlay(cfg.bgDarkness);
 
-  const isVid = data.type==='video' || (data.blob && data.blob.type.startsWith('video/'));
+  const isVid = data.type==='video' || (data.blob && (data.blob.type.startsWith('video/') || /\.(mp4|webm|ogg|mov|mkv|avi|m4v)$/i.test(data.name||'')));
   if(isVid){
     imgEl.style.backgroundImage='';imgEl.classList.remove('on');
     let srcUrl = data.url;
     if(data.blob){srcUrl=URL.createObjectURL(data.blob);currentBgObjectUrl=srcUrl}
-    vidEl.src=srcUrl;vidEl.loop=true;vidEl.muted=true;vidEl.playsInline=true;
-    vidEl.classList.add('on');
+    vidEl.muted=true;
+    vidEl.defaultMuted=true;
+    vidEl.loop=true;
+    vidEl.playsInline=true;
+    vidEl.src=srcUrl;
+    if(vidWrap)vidWrap.classList.add('on');
     vidEl.play().catch(e=>console.warn('[bg vid play]',e));
   } else {
-    vidEl.pause();vidEl.removeAttribute('src');vidEl.load();vidEl.classList.remove('on');
+    vidEl.pause();vidEl.removeAttribute('src');vidEl.load();
+    if(vidWrap)vidWrap.classList.remove('on');
     let srcUrl = data.url;
     if(data.blob){srcUrl=URL.createObjectURL(data.blob);currentBgObjectUrl=srcUrl}
     imgEl.style.backgroundImage=`url("${srcUrl}")`;imgEl.classList.add('on');
@@ -1193,12 +1206,15 @@ on('#bgClear','click',async ()=>{
 
 on('#bgFile','change',async e=>{
   const f=e.target.files[0];if(!f)return;
-  if(f.type.startsWith('video/')){
+  const isVideo = f.type.startsWith('video/') || /\.(mp4|webm|ogg|mov|mkv|avi|m4v)$/i.test(f.name);
+  const isImage = f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg|bmp|avif)$/i.test(f.name);
+
+  if(isVideo){
     toast('loading background video…');
     await idbBgPut(f,'video',f.name);
-    setCustomBgMedia({blob:f,type:'video'});
+    setCustomBgMedia({blob:f,type:'video',name:f.name});
     toast('video background playing');
-  } else if(f.type.startsWith('image/')){
+  } else if(isImage){
     toast('loading background image…');
     const fr=new FileReader();
     fr.onload=async ()=>{
@@ -1211,7 +1227,7 @@ on('#bgFile','change',async e=>{
         cv.toBlob(async blob=>{
           if(blob){
             await idbBgPut(blob,'image',f.name);
-            setCustomBgMedia({blob,type:'image'});
+            setCustomBgMedia({blob,type:'image',name:f.name});
             toast('image background saved');
           }
         },'image/jpeg',0.88);
