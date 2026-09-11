@@ -1,26 +1,23 @@
-/* Pomodoro d'Oro — AI proxy (key stays server-side) */
+/* Pomodoro d'Oro — Groq AI Proxy (server-side secret) */
 function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      'Access-Control-Allow-Origin': '*'
+    }
+  });
 }
 
-/* Direct-answer models only. Reasoning-suffix models removed entirely. */
-const NVIDIA_FALLBACK_MODELS = [
-  'nvidia/mistral-nemo-minitron-8b-8k-instruct',
-  'meta/llama-3.3-70b-instruct',
-  'meta/llama-3.1-405b-instruct',
-  'mistralai/mistral-large-2-instruct',
-  'deepseek-ai/deepseek-r1',
-  'google/gemma-2-9b-it',
-  'nvidia/nemotron-4-mini-15b-instruct'
-];
-
-/* Groq free-tier models (fast, no reasoning leaks) */
-const GROQ_MODELS = [
+/* Groq high-performance models list */
+const GROQ_FALLBACK_MODELS = [
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
   'llama-3.2-11b-vision-instruct',
   'llama-3.2-3b-instruct',
-  'gemma2-9b-it'
+  'gemma2-9b-it',
+  'mixtral-8x7b-32768'
 ];
 
 /* Detect chain-of-thought leaking into the visible answer */
@@ -40,15 +37,21 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/api/models') {
-      if (!env.NVIDIA_API_KEY && !env.GROQ_API_KEY) return json({ error: 'No API key configured (NVIDIA_API_KEY or GROQ_API_KEY)' }, 500);
-      if (env.NVIDIA_API_KEY) {
-        const r = await fetch('https://integrate.api.nvidia.com/v1/models', { headers: { Authorization: 'Bearer ' + env.NVIDIA_API_KEY } });
+      const apiKey = env.GROQ_API_KEY || env.NVIDIA_API_KEY;
+      if (!apiKey) return json({ error: 'No API key configured (GROQ_API_KEY)' }, 500);
+
+      try {
+        const r = await fetch('https://api.groq.com/openai/v1/models', {
+          headers: { Authorization: 'Bearer ' + apiKey }
+        });
         if (r.ok) {
           const d = await r.json();
-          return json({ models: (d.data || []).map(m => m.id) });
+          const list = (d.data || []).map(m => m.id).filter(id => !id.includes('whisper') && !id.includes('safetensors'));
+          return json({ models: list.length ? list : GROQ_FALLBACK_MODELS });
         }
-      }
-      return json({ models: [...NVIDIA_FALLBACK_MODELS, ...GROQ_MODELS] });
+      } catch (e) {}
+
+      return json({ models: GROQ_FALLBACK_MODELS });
     }
 
     if (url.pathname === '/api/chat') {
@@ -59,117 +62,92 @@ export default {
         try { oh = new URL(origin).host; } catch (e) { return json({ error: 'bad origin' }, 403); }
         if (oh !== url.host) return json({ error: 'cross-origin blocked' }, 403);
       }
+
       if (parseInt(request.headers.get('Content-Length') || '0', 10) > 32768)
         return json({ error: 'payload too large' }, 413);
-      if (!env.NVIDIA_API_KEY && !env.GROQ_API_KEY) return json({ error: 'AI API secret not set (NVIDIA_API_KEY or GROQ_API_KEY)' }, 500);
+
+      const apiKey = env.GROQ_API_KEY || env.NVIDIA_API_KEY;
+      if (!apiKey) return json({ error: 'AI API secret not set (GROQ_API_KEY)' }, 500);
 
       let body;
       try { body = await request.json(); } catch (e) { return json({ error: 'bad JSON' }, 400); }
       if (!Array.isArray(body.messages) || !body.messages.length) return json({ error: 'messages required' }, 400);
 
       const userSystem = body.messages[0]?.role === 'system' ? body.messages[0].content : '';
+      const systemPrompt = userSystem + ' CRITICAL: You are Maya, a warm, intelligent, and highly encouraging Nepali study coach. Reply with ONLY the final answer. Never show reasoning steps, analysis, drafts, or constraint checks.';
+
       const messages = [
-        { role: 'system', content: userSystem + ' CRITICAL: Reply with ONLY the final answer. Never show reasoning steps, analysis, drafts, or constraint checks.' },
+        { role: 'system', content: systemPrompt },
         ...body.messages.slice(1).slice(-12)
       ].map(m => ({
         role: ['system', 'user', 'assistant'].includes(m.role) ? m.role : 'user',
         content: String(m.content || '').slice(0, 4000)
       }));
 
-      const models = [env.NVIDIA_MODEL, ...NVIDIA_FALLBACK_MODELS].filter(Boolean);
-      const groqModels = GROQ_MODELS;
+      const modelList = Array.from(new Set([
+        env.GROQ_MODEL,
+        ...GROQ_FALLBACK_MODELS
+      ])).filter(Boolean);
+
       let lastStatus = 0, lastDetail = '', lastModel = '';
       let extracted = null, extractedModel = null, leaks = 0;
 
-      /* Try NVIDIA models first if key exists */
-      if (env.NVIDIA_API_KEY) {
-        for (const model of models) {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 25000);
-          try {
-            const upstream = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { Authorization: 'Bearer ' + env.NVIDIA_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
-              body: JSON.stringify({ model, messages, temperature: 0.6, top_p: 0.9, max_tokens: 280, stream: false }),
-              signal: controller.signal
-            });
-            clearTimeout(timeout);
+      for (const model of modelList) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 18000);
 
-            if (!upstream.ok) {
-              lastStatus = upstream.status; lastModel = model;
-              lastDetail = (await upstream.text().catch(() => '')).slice(0, 200);
-              continue;
-            }
+        try {
+          const upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer ' + apiKey,
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            body: JSON.stringify({
+              model,
+              messages,
+              temperature: 0.65,
+              top_p: 0.9,
+              max_tokens: 350,
+              stream: false
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
 
-            const data = await upstream.json();
-            const reply = data.choices?.[0]?.message?.content || '';
-
-            if (!reply || COT.test(reply)) {
-              leaks++;
-              if (reply && !extracted) { extracted = extractFinal(reply); extractedModel = model; }
-              if (leaks >= 2 && extracted) break;
-              lastStatus = 200; lastModel = model; lastDetail = 'reasoning leak or empty';
-              continue;
-            }
-            return json({ reply, model });
-          } catch (e) {
-            clearTimeout(timeout);
-            lastStatus = 0; lastModel = model;
-            lastDetail = e.message || String(e);
-            if (lastDetail.includes('timeout') || lastDetail.includes('abort')) {
-              lastStatus = 524;
-            }
+          if (!upstream.ok) {
+            lastStatus = upstream.status;
+            lastModel = model;
+            lastDetail = (await upstream.text().catch(() => '')).slice(0, 200);
             continue;
           }
+
+          const data = await upstream.json();
+          const reply = data.choices?.[0]?.message?.content || '';
+
+          if (!reply || COT.test(reply)) {
+            leaks++;
+            if (reply && !extracted) { extracted = extractFinal(reply); extractedModel = model; }
+            if (leaks >= 2 && extracted) break;
+            lastStatus = 200; lastModel = model; lastDetail = 'reasoning leak or empty';
+            continue;
+          }
+
+          return json({ reply, model: 'Groq · ' + model });
+        } catch (e) {
+          clearTimeout(timeout);
+          lastStatus = 0; lastModel = model;
+          lastDetail = e.message || String(e);
+          if (lastDetail.includes('timeout') || lastDetail.includes('abort')) {
+            lastStatus = 524;
+          }
+          continue;
         }
       }
 
-      /* Try Groq models if Groq key exists */
-      if (env.GROQ_API_KEY) {
-        for (const model of groqModels) {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 25000);
-          try {
-            const upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-              method: 'POST',
-              headers: { Authorization: 'Bearer ' + env.GROQ_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
-              body: JSON.stringify({ model, messages, temperature: 0.6, top_p: 0.9, max_tokens: 280, stream: false }),
-              signal: controller.signal
-            });
-            clearTimeout(timeout);
-
-            if (!upstream.ok) {
-              lastStatus = upstream.status; lastModel = model;
-              lastDetail = (await upstream.text().catch(() => '')).slice(0, 200);
-              continue;
-            }
-
-            const data = await upstream.json();
-            const reply = data.choices?.[0]?.message?.content || '';
-
-            if (!reply || COT.test(reply)) {
-              leaks++;
-              if (reply && !extracted) { extracted = extractFinal(reply); extractedModel = model; }
-              if (leaks >= 2 && extracted) break;
-              lastStatus = 200; lastModel = model; lastDetail = 'reasoning leak or empty';
-              continue;
-            }
-            return json({ reply, model });
-          } catch (e) {
-            clearTimeout(timeout);
-            lastStatus = 0; lastModel = model;
-            lastDetail = e.message || String(e);
-            if (lastDetail.includes('timeout') || lastDetail.includes('abort')) {
-              lastStatus = 524;
-            }
-            continue;
-          }
-        }
-      }
-
-      if (extracted) return json({ reply: extracted, model: (extractedModel || 'unknown') + ' (draft-extracted)' });
-      const allTried = env.NVIDIA_API_KEY ? [...models, ...groqModels] : groqModels;
-      return json({ error: 'all models failed (last: ' + lastStatus + ' on ' + lastModel + ')', detail: lastDetail, tried: allTried }, 502);
+      if (extracted) return json({ reply: extracted, model: 'Groq · ' + (extractedModel || 'groq') });
+      return json({ error: 'Groq models unavailable (last status: ' + lastStatus + ' on ' + lastModel + ')', detail: lastDetail, tried: modelList }, 502);
     }
 
     return env.ASSETS.fetch(request);

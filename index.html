@@ -357,23 +357,35 @@ body.mini .scroll-cue{opacity:0;pointer-events:none}
 .legend{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:.62rem;color:var(--ink-40);letter-spacing:.08em}
 .legend .sw{width:10px;height:10px;border-radius:2px}
 
-/* ---------- AI coach ---------- */
-.ai-msgs{display:flex;flex-direction:column;gap:10px;min-height:140px;max-height:46vh;overflow:auto;padding:4px 2px;scrollbar-width:thin}
-.ai-msg{max-width:88%;padding:10px 14px;border-radius:16px;font-size:.82rem;line-height:1.55}
-.ai-msg.user{align-self:flex-end;background:color-mix(in oklab,var(--accent) 22%,transparent);border:1px solid color-mix(in oklab,var(--accent) 40%,transparent);border-bottom-right-radius:6px}
-.ai-msg.bot{align-self:flex-start;background:var(--ink-05);border:1px solid var(--line);border-bottom-left-radius:6px}
+/* ---------- AI coach (Maya) ---------- */
+.ai-head{padding:14px 20px 12px}
+.ai-profile{display:flex;align-items:center;gap:12px}
+.ai-avatar-wrap{position:relative;width:44px;height:44px;border-radius:50%;padding:2px;background:linear-gradient(135deg,var(--gold),var(--accent));box-shadow:0 4px 14px rgba(255,140,70,.3);flex:none}
+.ai-avatar-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.ai-online-pip{position:absolute;right:0;bottom:0;width:10px;height:10px;border-radius:50%;background:#4cd964;border:2px solid var(--panel);box-shadow:0 0 8px #4cd964}
+.ai-meta-title h2{font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:1.15rem;display:flex;align-items:center;gap:8px;line-height:1.2}
+.ai-badge{font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:color-mix(in oklab,var(--accent) 25%,transparent);color:var(--gold);border:1px solid color-mix(in oklab,var(--gold) 40%,transparent);font-family:"Space Grotesk",sans-serif;font-style:normal;font-weight:600}
+.ai-subtitle{font-size:.68rem;color:var(--ink-60);font-weight:400}
+.ai-msgs{display:flex;flex-direction:column;gap:12px;min-height:160px;max-height:46vh;overflow:auto;padding:6px 4px;scrollbar-width:thin}
+.ai-msg-row{display:flex;gap:10px;align-items:flex-start;max-width:92%}
+.ai-msg-row.user{align-self:flex-end;flex-direction:row-reverse}
+.ai-msg-row.bot{align-self:flex-start}
+.ai-msg-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:none;margin-top:4px;box-shadow:0 2px 8px rgba(0,0,0,.3);border:1px solid var(--line)}
+.ai-msg{padding:11px 15px;border-radius:18px;font-size:.83rem;line-height:1.6}
+.ai-msg-row.user .ai-msg{background:linear-gradient(135deg,color-mix(in oklab,var(--accent) 30%,transparent),color-mix(in oklab,var(--accent) 15%,transparent));border:1px solid color-mix(in oklab,var(--accent) 45%,transparent);border-top-right-radius:4px;color:var(--ink)}
+.ai-msg-row.bot .ai-msg{background:var(--ink-05);border:1px solid var(--line);border-top-left-radius:4px}
 .ai-msg.bot.err{border-color:rgba(255,120,90,.4);color:#ff8f7a}
 .ai-msg code{background:var(--ink-10);padding:1px 5px;border-radius:5px;font-size:.76rem}
 .ai-via{margin-top:6px;font-size:.58rem;letter-spacing:.08em;color:var(--ink-40);text-transform:uppercase}
 .ai-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
-.ai-chips button{font-size:.66rem;letter-spacing:.04em;padding:6px 11px;border-radius:999px;border:1px solid var(--line);color:var(--ink-60);background:var(--ink-05);transition:.2s}
-.ai-chips button:hover{color:var(--ink);border-color:var(--accent)}
+.ai-chips button{font-size:.68rem;letter-spacing:.02em;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink-80);background:var(--ink-05);transition:.25s var(--ease);display:inline-flex;align-items:center;gap:4px}
+.ai-chips button:hover{color:var(--ink);border-color:var(--accent);background:color-mix(in oklab,var(--accent) 14%,transparent);transform:translateY(-1px)}
 .ai-input{display:flex;gap:8px;margin-top:12px}
-.ai-input textarea{flex:1;resize:none;height:46px;background:var(--ink-05);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit;font-size:.82rem;outline:none;color:var(--ink)}
+.ai-input textarea{flex:1;resize:none;height:48px;background:var(--ink-05);border:1px solid var(--line);border-radius:14px;padding:11px 14px;font:inherit;font-size:.83rem;outline:none;color:var(--ink);transition:border-color .25s}
 .ai-input textarea:focus{border-color:var(--accent)}
 .ai-note{margin-top:12px;font-size:.62rem;color:var(--ink-40);line-height:1.6}
-.ai-typing{display:inline-flex;gap:4px}
-.ai-typing i{width:5px;height:5px;border-radius:50%;background:var(--ink-40);animation:blink 1s infinite}
+.ai-typing{display:inline-flex;gap:5px;align-items:center;padding:4px 2px}
+.ai-typing i{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1s infinite}
 .ai-typing i:nth-child(2){animation-delay:.2s}.ai-typing i:nth-child(3){animation-delay:.4s}
 @keyframes blink{50%{opacity:.2}}
 
@@ -596,22 +608,33 @@ body.idle{cursor:none}
 </aside>
 
 <aside class="drawer drawer-right" id="drawerAI" role="dialog" aria-label="study coach" aria-hidden="true">
-  <div class="drawer-head"><h2>study coach</h2>
-    <button class="close" data-close="drawerAI" aria-label="close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6l-12 12"/></svg></button></div>
+  <div class="drawer-head ai-head">
+    <div class="ai-profile">
+      <div class="ai-avatar-wrap">
+        <img src="coach-avatar.jpg" alt="Maya - Nepali Study Coach" class="ai-avatar-img">
+        <span class="ai-online-pip" title="Groq AI active"></span>
+      </div>
+      <div class="ai-meta-title">
+        <h2>Maya <span class="ai-badge">Groq AI</span></h2>
+        <span class="ai-subtitle">Nepali Study Companion</span>
+      </div>
+    </div>
+    <button class="close" data-close="drawerAI" aria-label="close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6l-12 12"/></svg></button>
+  </div>
   <div class="drawer-body">
     <div class="section" style="border-bottom:none;padding-top:4px">
       <div class="ai-chips">
-        <button data-q="Explain my current task in simple terms, like I'm 12.">explain it</button>
-        <button data-q="Quiz me on my current task. Ask ONE question and wait for my answer.">quiz me</button>
-        <button data-q="Make a 3-pomodoro study plan for my current task with tiny steps.">plan it</button>
-        <button data-q="I keep getting distracted. Help me refocus in under 60 words.">refocus</button>
+        <button data-q="Namaste Maya! Explain my current task in simple terms.">🇳🇵 namaste & explain</button>
+        <button data-q="Quiz me on my current task. Ask ONE question and wait for my answer.">🎯 quiz me</button>
+        <button data-q="Make a 3-pomodoro study plan for my current task with tiny steps.">📋 3-pomo plan</button>
+        <button data-q="I keep getting distracted. Give me a warm pep talk to refocus.">🔥 pep talk</button>
       </div>
       <div class="ai-msgs" id="aiMsgs"></div>
       <div class="ai-input">
-        <textarea id="aiInput" placeholder="ask your coach anything…" maxlength="1200"></textarea>
+        <textarea id="aiInput" placeholder="ask Maya anything in English or Nepali…" maxlength="1200"></textarea>
         <button class="chip solid" id="aiSend">ask</button>
       </div>
-      <p class="ai-note">answers come from NVIDIA Nemotron through your own Cloudflare Worker — the API key never enters the browser. chat history stays on this device only. <button class="chip" id="aiClear" style="padding:3px 9px">clear</button></p>
+      <p class="ai-note">powered by Groq AI speed engine through Cloudflare Workers. local-first chat history stays on this device. <button class="chip" id="aiClear" style="padding:3px 9px">clear</button></p>
     </div>
   </div>
 </aside>
@@ -1391,24 +1414,39 @@ const saveAI=()=>{try{localStorage.setItem('pdoro.ai',JSON.stringify(aiHistory.s
 function aiSystem(){
   const at=tasks.find(t=>t.id===activeTask&&!t.done);
   const s=loadStats(),t=todayISO(),d=(s.day&&s.day.date===t)?s.day:{count:0,min:0};
-  return 'You are "Coach", a warm, concise study companion inside a Pomodoro focus timer called Pomodoro d\'Oro. '+
-    'Rules: answers under ~180 words; plain friendly language; when quizzing, ask ONE question then stop; use short bullets for lists; never lecture about productivity unless asked. '+
+  return 'You are "Maya", a warm, intelligent, and highly encouraging Nepali study coach inside Pomodoro d\'Oro. '+
+    'Rules: answers under ~180 words; empathetic, cheerful, structured tone; sprinkle subtle Nepali warmth (e.g. "Namaste!", "Keep going!", "Tapai le garna saknuhunchha!") naturally when helpful; when quizzing, ask ONE clear question; use short bullet points. '+
     'Reply with ONLY the final answer — never show reasoning steps, drafts, or constraint checks. '+
     'Live context — current focus task: '+(at?at.text:'(none set)')+'; pomodoros done today: '+d.count+
     '; focus minutes today: '+d.min+'; distractions this session: '+sessionDistractions+'; timer phase: '+engine.phase+'.';
 }
 function aiRenderMsg(m){
+  const row=document.createElement('div');
+  row.className='ai-msg-row '+(m.role==='user'?'user':'bot');
+  if(m.role!=='user'){
+    const img=document.createElement('img');
+    img.className='ai-msg-avatar';
+    img.src='coach-avatar.jpg';
+    img.alt='Maya';
+    row.appendChild(img);
+  }
   const div=document.createElement('div');
   div.className='ai-msg '+(m.role==='user'?'user':'bot')+(m.err?' err':'');
   let h=esc(m.content)
     .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
     .replace(/`([^`]+)`/g,'<code>$1</code>');
   h=h.split('\n').map(l=>l.replace(/^-\s+/,'• ')).join('<br>');
-  div.innerHTML=h+(m.via?`<div class="ai-via">via ${esc(m.via)}</div>`:'');return div;
+  div.innerHTML=h+(m.via?`<div class="ai-via">via ${esc(m.via)}</div>`:'');
+  row.appendChild(div);
+  return row;
 }
 function aiRenderAll(){
   const box=$('#aiMsgs');box.innerHTML='';
-  if(!aiHistory.length){box.innerHTML='<div class="ai-msg bot">hey — I\'m your study coach. tell me what you\'re working on, or tap a chip above.</div>';return}
+  if(!aiHistory.length){
+    const welcome = {role:'assistant', content:'Namaste! 🙏 I\'m Maya, your study coach. Tell me what you\'re working on today, or tap a suggestion above to get started!'};
+    box.appendChild(aiRenderMsg(welcome));
+    return;
+  }
   aiHistory.forEach(m=>box.appendChild(aiRenderMsg(m)));box.scrollTop=box.scrollHeight;
 }
 function aiPush(m){
@@ -1426,10 +1464,10 @@ function aiGenerateOfflineReply(text){
   let reply='';
 
   if(lower.includes('explain')||lower.includes('simple terms')){
-    reply=`<b>${esc(taskTitle)}</b> is your primary focus right now.\n\n`+
+    reply=`Namaste! 🙏 <b>${esc(taskTitle)}</b> is your primary focus right now.\n\n`+
       `• <b>Core Concept:</b> Break "${esc(taskTitle)}" into tiny 25-minute steps.\n`+
       `• <b>Current Session:</b> Stay focused on one single action item during this ${phase} session.\n`+
-      `• <b>Goal:</b> Clear all distractions until the chime sounds!`;
+      `• <b>Goal:</b> Clear all distractions until the chime sounds! Tapai le garna saknuhunchha!`;
   } else if(lower.includes('quiz')||lower.includes('question')){
     const questions=[
       `What is the very next 5-minute action you need to take for <b>${esc(taskTitle)}</b>?`,
@@ -1437,46 +1475,47 @@ function aiGenerateOfflineReply(text){
       `In one sentence, what will completing <b>${esc(taskTitle)}</b> allow you to accomplish?`
     ];
     const q=questions[Math.floor(Math.random()*questions.length)];
-    reply=`<b>Question:</b> ${q}\n\n<i>Reply with your answer and keep your momentum going!</i>`;
+    reply=`<b>Question from Maya:</b> ${q}\n\n<i>Reply with your answer and keep your momentum going!</i>`;
   } else if(lower.includes('plan')||lower.includes('study plan')){
     reply=`<b>3-Pomodoro Plan for "${esc(taskTitle)}":</b>\n\n`+
       `• <b>Pomo 1:</b> Clear setup & outline. Draft the foundation without overthinking.\n`+
       `• <b>Pomo 2:</b> Deep execution block. Complete the core heavy lifting.\n` +
       `• <b>Pomo 3:</b> Review, polish, and verify.\n\n`+
-      `You've already completed <b>${d.count}</b> pomodoro(s) today (${d.min} mins). Keep it up!`;
-  } else if(lower.includes('distract')||lower.includes('refocus')){
-    reply=`Take a deep breath. 🧘\n\n`+
+      `You've already completed <b>${d.count}</b> pomodoro(s) today (${d.min} mins). Keep it up! 💪`;
+  } else if(lower.includes('distract')||lower.includes('refocus')||lower.includes('pep talk')){
+    reply=`Take a deep breath. 🧘✨\n\n`+
       `• <b>Step 1:</b> Close all non-study tabs right now.\n`+
       `• <b>Step 2:</b> Write down any distracting thoughts on paper to check later.\n`+
-      `• <b>Step 3:</b> Focus on <b>${esc(taskTitle)}</b> for just 5 minutes. The flow state will follow!`;
+      `• <b>Step 3:</b> Focus on <b>${esc(taskTitle)}</b> for just 5 minutes. The flow state will follow!\n\n`+
+      `<i>You've got this! Tapai le garna saknuhunchha!</i>`;
   } else {
-    reply=`Great progress on <b>${esc(taskTitle)}</b>! You've completed <b>${d.count} pomodoro(s)</b> (${d.min} mins) today.\n\n`+
+    reply=`Namaste! Great progress on <b>${esc(taskTitle)}</b>! You've completed <b>${d.count} pomodoro(s)</b> (${d.min} mins) today.\n\n`+
       `• <b>Current Phase:</b> ${phase.toUpperCase()} mode.\n`+
-      `• <b>Coach Tip:</b> Focus on one small step at a time. High quality focus beats long hours! What is your next micro-step?`;
+      `• <b>Maya's Tip:</b> Focus on one small step at a time. High quality focus beats long hours! What is your next micro-step?`;
   }
-  aiPush({role:'assistant',content:reply,via:'local coach'});
+  aiPush({role:'assistant',content:reply,via:'Maya · offline coach'});
 }
 
 async function aiSendText(text){
   text=(text||'').trim();if(!text)return;
   aiPush({role:'user',content:text});
   const box=$('#aiMsgs');
-  const typing=document.createElement('div');typing.className='ai-msg bot';
-  typing.innerHTML='<span class="ai-typing"><i></i><i></i><i></i></span>';
-  box.appendChild(typing);box.scrollTop=box.scrollHeight;
+  const typingRow=document.createElement('div');typingRow.className='ai-msg-row bot';
+  typingRow.innerHTML='<img class="ai-msg-avatar" src="coach-avatar.jpg" alt="Maya"><div class="ai-msg bot"><span class="ai-typing"><i></i><i></i><i></i></span></div>';
+  box.appendChild(typingRow);box.scrollTop=box.scrollHeight;
   $('#aiSend').disabled=true;
   const msgs=[{role:'system',content:aiSystem()},...aiHistory.slice(-11)];
   try{
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
     const d=await r.json().catch(()=>({}));
-    typing.remove();
+    typingRow.remove();
     if(!r.ok||!d.reply){
       aiGenerateOfflineReply(text);
     } else {
-      aiPush({role:'assistant',content:d.reply,via:d.model||''});
+      aiPush({role:'assistant',content:d.reply,via:d.model||'Groq AI'});
     }
   }catch(e){
-    typing.remove();
+    typingRow.remove();
     aiGenerateOfflineReply(text);
   }
   $('#aiSend').disabled=false;$('#aiInput').focus();
