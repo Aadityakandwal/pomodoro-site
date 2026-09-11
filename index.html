@@ -1434,6 +1434,7 @@ function aiRenderMsg(m){
   div.className='ai-msg '+(m.role==='user'?'user':'bot')+(m.err?' err':'');
   let h=esc(m.content)
     .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+    .replace(/\*([^\*]+)\*/g,'<i>$1</i>')
     .replace(/`([^`]+)`/g,'<code>$1</code>');
   h=h.split('\n').map(l=>l.replace(/^-\s+/,'• ')).join('<br>');
   div.innerHTML=h+(m.via?`<div class="ai-via">via ${esc(m.via)}</div>`:'');
@@ -1464,34 +1465,34 @@ function aiGenerateOfflineReply(text){
   let reply='';
 
   if(lower.includes('explain')||lower.includes('simple terms')){
-    reply=`Namaste! 🙏 <b>${esc(taskTitle)}</b> is your primary focus right now.\n\n`+
-      `• <b>Core Concept:</b> Break "${esc(taskTitle)}" into tiny 25-minute steps.\n`+
-      `• <b>Current Session:</b> Stay focused on one single action item during this ${phase} session.\n`+
-      `• <b>Goal:</b> Clear all distractions until the chime sounds! Tapai le garna saknuhunchha!`;
+    reply=`Namaste! 🙏 **${taskTitle}** is your primary focus right now.\n\n`+
+      `• **Core Concept:** Break "${taskTitle}" into tiny 25-minute steps.\n`+
+      `• **Current Session:** Stay focused on one single action item during this ${phase} session.\n`+
+      `• **Goal:** Clear all distractions until the chime sounds! Tapai le garna saknuhunchha!`;
   } else if(lower.includes('quiz')||lower.includes('question')){
     const questions=[
-      `What is the very next 5-minute action you need to take for <b>${esc(taskTitle)}</b>?`,
-      `What main distraction might pull you away from <b>${esc(taskTitle)}</b>, and how will you prevent it?`,
-      `In one sentence, what will completing <b>${esc(taskTitle)}</b> allow you to accomplish?`
+      `What is the very next 5-minute action you need to take for **${taskTitle}**?`,
+      `What main distraction might pull you away from **${taskTitle}**, and how will you prevent it?`,
+      `In one sentence, what will completing **${taskTitle}** allow you to accomplish?`
     ];
     const q=questions[Math.floor(Math.random()*questions.length)];
-    reply=`<b>Question from Maya:</b> ${q}\n\n<i>Reply with your answer and keep your momentum going!</i>`;
+    reply=`**Question from Maya:** ${q}\n\n*Reply with your answer and keep your momentum going!*`;
   } else if(lower.includes('plan')||lower.includes('study plan')){
-    reply=`<b>3-Pomodoro Plan for "${esc(taskTitle)}":</b>\n\n`+
-      `• <b>Pomo 1:</b> Clear setup & outline. Draft the foundation without overthinking.\n`+
-      `• <b>Pomo 2:</b> Deep execution block. Complete the core heavy lifting.\n` +
-      `• <b>Pomo 3:</b> Review, polish, and verify.\n\n`+
-      `You've already completed <b>${d.count}</b> pomodoro(s) today (${d.min} mins). Keep it up! 💪`;
+    reply=`**3-Pomodoro Plan for "${taskTitle}":**\n\n`+
+      `• **Pomo 1:** Clear setup & outline. Draft the foundation without overthinking.\n`+
+      `• **Pomo 2:** Deep execution block. Complete the core heavy lifting.\n` +
+      `• **Pomo 3:** Review, polish, and verify.\n\n`+
+      `You've already completed **${d.count}** pomodoro(s) today (${d.min} mins). Keep it up! 💪`;
   } else if(lower.includes('distract')||lower.includes('refocus')||lower.includes('pep talk')){
     reply=`Take a deep breath. 🧘✨\n\n`+
-      `• <b>Step 1:</b> Close all non-study tabs right now.\n`+
-      `• <b>Step 2:</b> Write down any distracting thoughts on paper to check later.\n`+
-      `• <b>Step 3:</b> Focus on <b>${esc(taskTitle)}</b> for just 5 minutes. The flow state will follow!\n\n`+
-      `<i>You've got this! Tapai le garna saknuhunchha!</i>`;
+      `• **Step 1:** Close all non-study tabs right now.\n`+
+      `• **Step 2:** Write down any distracting thoughts on paper to check later.\n`+
+      `• **Step 3:** Focus on **${taskTitle}** for just 5 minutes. The flow state will follow!\n\n`+
+      `*You've got this! Tapai le garna saknuhunchha!*`;
   } else {
-    reply=`Namaste! Great progress on <b>${esc(taskTitle)}</b>! You've completed <b>${d.count} pomodoro(s)</b> (${d.min} mins) today.\n\n`+
-      `• <b>Current Phase:</b> ${phase.toUpperCase()} mode.\n`+
-      `• <b>Maya's Tip:</b> Focus on one small step at a time. High quality focus beats long hours! What is your next micro-step?`;
+    reply=`Namaste! Great progress on **${taskTitle}**! You've completed **${d.count} pomodoro(s)** (${d.min} mins) today.\n\n`+
+      `• **Current Phase:** ${phase.toUpperCase()} mode.\n`+
+      `• **Maya's Tip:** Focus on one small step at a time. High quality focus beats long hours! What is your next micro-step?`;
   }
   aiPush({role:'assistant',content:reply,via:'Maya · offline coach'});
 }
