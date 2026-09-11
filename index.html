@@ -233,19 +233,25 @@ body.mini .scroll-cue{opacity:0;pointer-events:none}
 .section:last-child{border-bottom:none}
 .section-label{font-size:.62rem;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-40);margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .section-label::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--accent)}
-.popover{position:fixed;top:70px;right:clamp(16px,3vw,28px);width:min(320px,90vw);background:var(--glass);
-  backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
-  border:1px solid var(--line-strong);border-radius:20px;padding:20px;z-index:60;
-  transform:translateY(-8px) scale(.97);opacity:0;pointer-events:none;transition:.28s var(--ease);box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.popover{position:fixed;top:70px;right:clamp(12px,3vw,28px);width:min(340px,92vw);max-height:85vh;overflow-y:auto;
+  background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid var(--line-strong);border-radius:22px;padding:18px 20px;z-index:60;
+  transform:translateY(-8px) scale(.97);opacity:0;pointer-events:none;transition:.28s var(--ease);box-shadow:0 24px 60px rgba(0,0,0,.5)}
 .popover.open{opacity:1;pointer-events:auto;transform:none}
-.popover h3{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:1rem;margin-bottom:14px}
-.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;font-size:.82rem;color:var(--ink-60)}
-.row input[type=number]{width:60px;background:var(--ink-05);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;text-align:center}
-.row input[type=number]:focus{border-color:var(--accent)}
+.popover h3{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:1.1rem;margin-bottom:14px;color:var(--ink)}
+.pop-section{padding:10px 0;border-bottom:1px dashed var(--line)}
+.pop-section:last-of-type{border-bottom:none;padding-bottom:0}
+.pop-sub{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-40);margin-bottom:8px;font-weight:500}
+.timer-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.timer-item{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.7rem;color:var(--ink-60);background:var(--ink-05);padding:8px 6px;border-radius:12px;border:1px solid var(--line)}
+.timer-item input[type=number]{width:100%;max-width:54px;background:transparent;color:var(--ink);border:none;font:inherit;font-size:.9rem;font-weight:600;text-align:center;outline:none}
+.timer-item input[type=number]:focus{color:var(--accent)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.8rem;color:var(--ink-60);padding:4px 0}
 .row input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
-.row select{background:var(--ink-05);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;font-size:.78rem;outline:none}
-.rowbtns{display:flex;gap:6px}
-.chip{font-size:.7rem;letter-spacing:.08em;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--ink-05);color:var(--ink-60);transition:.2s}
+.range-row{margin-top:6px}
+.range-row input[type=range]{flex:1;max-width:130px;accent-color:var(--accent);cursor:pointer;height:4px}
+.bg-btn-group{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}
+.chip{font-size:.68rem;letter-spacing:.04em;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--ink-05);color:var(--ink-60);transition:.2s;cursor:pointer;white-space:nowrap}
 .chip:hover{border-color:var(--accent);color:var(--ink)}
 .chip.solid{background:var(--accent);color:#1c0c08;border-color:var(--accent);font-weight:500}
 
@@ -608,19 +614,39 @@ body.idle{cursor:none}
 
 <div class="popover" id="settingsPopover" role="dialog" aria-label="settings" aria-hidden="true">
   <h3>settings</h3>
-  <label class="row">focus (min) <input type="number" id="cfgFocus" min="1" max="180"></label>
-  <label class="row">break (min) <input type="number" id="cfgShort" min="1" max="60"></label>
-  <label class="row">long break (min) <input type="number" id="cfgLong" min="1" max="90"></label>
-  <label class="row">auto-start next <input type="checkbox" id="cfgAuto"></label>
-  <div class="row">background media (image/video)
-    <span class="rowbtns"><button class="chip" id="bgAudioBtn">🔇 audio off</button><button class="chip" id="bgPick">choose…</button><button class="chip" id="bgClear">reset</button></span>
+
+  <div class="pop-section">
+    <div class="pop-sub">timer (minutes)</div>
+    <div class="timer-grid">
+      <label class="timer-item"><span>focus</span><input type="number" id="cfgFocus" min="1" max="180"></label>
+      <label class="timer-item"><span>break</span><input type="number" id="cfgShort" min="1" max="60"></label>
+      <label class="timer-item"><span>long</span><input type="number" id="cfgLong" min="1" max="90"></label>
+    </div>
   </div>
-  <label class="row" style="font-size:.78rem">bg darkness
-    <input type="range" id="cfgBgDark" min="0.1" max="0.85" step="0.05" value="0.5" style="width:100px;accent-color:var(--accent)">
-  </label>
-  <label class="row" style="font-size:.78rem">bg video sound
-    <input type="checkbox" id="cfgBgAudio" style="accent-color:var(--accent)">
-  </label>
+
+  <div class="pop-section">
+    <label class="row">
+      <span>auto-start next timer</span>
+      <input type="checkbox" id="cfgAuto">
+    </label>
+  </div>
+
+  <div class="pop-section">
+    <div class="pop-sub">custom background & video sound</div>
+    <div class="bg-btn-group">
+      <button class="chip" id="bgPick" title="choose image or video">🖼️ choose media</button>
+      <button class="chip" id="bgAudioBtn" title="toggle video sound">🔇 audio off</button>
+      <button class="chip" id="bgClear" title="reset background">reset</button>
+    </div>
+    <label class="row range-row">
+      <span>bg darkness</span>
+      <input type="range" id="cfgBgDark" min="0.1" max="0.85" step="0.05" value="0.5">
+    </label>
+    <label class="row" style="display:none">
+      <input type="checkbox" id="cfgBgAudio">
+    </label>
+  </div>
+
   <input type="file" id="bgFile" accept="image/*,video/*" hidden>
 </div>
 
