@@ -1145,18 +1145,32 @@ function renderHeatmap(){const svg=$('#heatmap');if(!svg)return;const days=loadS
   let tot=0;for(let i=0;i<30;i++){const d=new Date(today);d.setDate(today.getDate()-i);tot+=days[d.toISOString().slice(0,10)]||0}
   $('#heatmapSub').textContent=`${tot} min · 30 days`}
 
+function bgVideoSync(){
+  const vidWrap=$('#customBgVideoWrap'),ytWrap=$('#ytBgWrap');
+  const vidEl=$('#customBgVideo');
+  if(vidEl && vidWrap && vidWrap.classList.contains('on')){
+    try{if(engine.running)vidEl.play().catch(()=>{});else vidEl.pause()}catch(e){}
+  }
+  if(ytBgPlayer && ytWrap && ytWrap.classList.contains('on')){
+    try{
+      if(engine.running){if(typeof ytBgPlayer.playVideo==='function')ytBgPlayer.playVideo()}
+      else{if(typeof ytBgPlayer.pauseVideo==='function')ytBgPlayer.pauseVideo()}
+    }catch(e){}
+  }
+}
+
 /* ---------- engine events ---------- */
 engine.on('tick',render);
-engine.on('state',()=>{render();musicSync()});
-engine.on('change',({reason})=>{applyPhase();render();if(reason==='complete')toast(msgs[engine.phase]);else if(reason==='manual')toast(labels[engine.phase]+' set')});
+engine.on('state',()=>{render();musicSync();bgVideoSync()});
+engine.on('change',({reason})=>{applyPhase();render();if(reason==='complete')toast(msgs[engine.phase]);else if(reason==='manual')toast(labels[engine.phase]+' set');bgVideoSync()});
 engine.on('complete',done=>{AudioKit.chime();
   if(done==='focus'){bumpStats(cfg.focus);const at=tasks.find(t=>t.id===activeTask);
     if(at){at.pomos=(at.pomos||0)+1;saveTasks();renderTasks()}}
   if(cfg.auto)setTimeout(()=>{if(!engine.running)engine.start()},1400)});
 
-on('#startBtn','click',()=>{AudioKit.ensure();engine.running?engine.pause():engine.start();AudioKit.blip(engine.running?880:520);render();musicSync()});
-on('#resetBtn','click',()=>{engine.reset();render();toast('reset')});
-on('#skipBtn','click',()=>{engine.skip();render();toast('skipped')});
+on('#startBtn','click',()=>{AudioKit.ensure();engine.running?engine.pause():engine.start();AudioKit.blip(engine.running?880:520);render();musicSync();bgVideoSync()});
+on('#resetBtn','click',()=>{engine.reset();render();bgVideoSync();toast('reset')});
+on('#skipBtn','click',()=>{engine.skip();render();bgVideoSync();toast('skipped')});
 
 /* master + mute */
 const masterVol=$('#masterVol');masterVol.value=cfg.vol;

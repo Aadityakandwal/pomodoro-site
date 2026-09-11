@@ -19,9 +19,10 @@ const GROQ_MODELS = [
 
 const NVIDIA_MODELS = [
   'meta/llama-3.3-70b-instruct',
-  'nvidia/mistral-nemo-minitron-8b-8k-instruct',
-  'google/gemma-2-9b-it',
-  'mistralai/mistral-large-2-instruct'
+  'nvidia/llama-3.1-nemotron-70b-instruct',
+  'meta/llama-3.1-70b-instruct',
+  'meta/llama-3.1-8b-instruct',
+  'nvidia/mistral-nemo-minitron-8b-8k-instruct'
 ];
 
 /* Detect chain-of-thought leaking into visible output */
