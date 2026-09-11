@@ -1153,8 +1153,12 @@ function bgVideoSync(){
   }
   if(ytBgPlayer && ytWrap && ytWrap.classList.contains('on')){
     try{
-      if(engine.running){if(typeof ytBgPlayer.playVideo==='function')ytBgPlayer.playVideo()}
-      else{if(typeof ytBgPlayer.pauseVideo==='function')ytBgPlayer.pauseVideo()}
+      if(typeof ytBgPlayer.playVideo==='function')ytBgPlayer.playVideo();
+      if(cfg.bgAudio){
+        if(typeof ytBgPlayer.unMute==='function')ytBgPlayer.unMute();
+      }else{
+        if(typeof ytBgPlayer.mute==='function')ytBgPlayer.mute();
+      }
     }catch(e){}
   }
 }
@@ -1226,6 +1230,7 @@ pop.addEventListener('change',e=>{if(e.target.id==='bgFile')return;
   const bd=$('#cfgBgDark');if(bd)cfg.bgDarkness=clamp(+bd.value||.5,.1,.85);
   const ba=$('#cfgBgAudio');if(ba)cfg.bgAudio=ba.checked;
   const vidEl=$('#customBgVideo');if(vidEl)vidEl.muted=!cfg.bgAudio;
+  if(ytBgPlayer){try{if(cfg.bgAudio)ytBgPlayer.unMute();else ytBgPlayer.mute()}catch(e){}}
   saveCfg();fillSettings();applyBgOverlay(cfg.bgDarkness);
   engine.setDurations({focus:cfg.focus*60e3,short:cfg.short*60e3,long:cfg.long*60e3});render();toast('settings saved')});
 pop.addEventListener('input',e=>{
@@ -1289,7 +1294,7 @@ async function setYTBgMedia(ytId){
             try{ev.target.setOption('captions','track',{})}catch(e){}
           },
           onStateChange:ev=>{
-            if(ev.data===0)ev.target.playVideo();
+            if(ev.data===0||ev.data===2)ev.target.playVideo();
             try{ev.target.unloadModule('captions')}catch(e){}
           }
         }
