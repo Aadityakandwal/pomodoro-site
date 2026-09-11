@@ -1427,8 +1427,33 @@ on('#bgFile','change',async e=>{
   e.target.value='';
 });
 
+function seekBgVideo(seconds){
+  const ytWrap=$('#ytBgWrap'), vidWrap=$('#customBgVideoWrap'), vidEl=$('#customBgVideo');
+  if(ytBgPlayer && ytWrap && ytWrap.classList.contains('on')){
+    try{
+      if(typeof ytBgPlayer.getCurrentTime==='function' && typeof ytBgPlayer.seekTo==='function'){
+        const cur=ytBgPlayer.getCurrentTime()||0;
+        const dur=ytBgPlayer.getDuration()||0;
+        let target=cur+seconds;
+        if(dur>0) target=Math.min(dur-1, Math.max(0, target));
+        else target=Math.max(0, target);
+        ytBgPlayer.seekTo(target, true);
+      }
+    }catch(e){}
+  } else if(vidEl && vidWrap && vidWrap.classList.contains('on')){
+    try{
+      let target=(vidEl.currentTime||0)+seconds;
+      if(vidEl.duration) target=Math.min(vidEl.duration-1, Math.max(0, target));
+      else target=Math.max(0, target);
+      vidEl.currentTime=target;
+    }catch(e){}
+  }
+}
+
 /* ---------- keys ---------- */
 addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+  if(e.key==='ArrowLeft'){e.preventDefault();seekBgVideo(-5);return}
+  if(e.key==='ArrowRight'){e.preventDefault();seekBgVideo(5);return}
   if(e.key==='f'||e.key==='F'){toggleZen();return}
   if(e.key==='p'||e.key==='P'){setMini(!document.body.classList.contains('mini'));return}
   if(e.code==='Space'){e.preventDefault();$('#startBtn').click()}
