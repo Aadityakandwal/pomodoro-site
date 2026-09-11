@@ -1272,16 +1272,26 @@ async function setYTBgMedia(ytId){
     try{
       ytBgPlayer.loadVideoById({videoId:ytId});
       if(cfg.bgAudio)ytBgPlayer.unMute();else ytBgPlayer.mute();
+      try{ytBgPlayer.unloadModule('captions')}catch(e){}
+      try{ytBgPlayer.setOption('captions','track',{})}catch(e){}
       ytBgPlayer.playVideo();
     }catch(e){console.warn('[yt bg load]',e)}
   }else{
     try{
       ytBgPlayer=new YT.Player('ytBgPlayer',{
         videoId:ytId,
-        playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,loop:1,playlist:ytId,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3},
+        playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,loop:1,playlist:ytId,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3,cc_load_policy:0,cc_lang_pref:'none'},
         events:{
-          onReady:ev=>{ev.target.playVideo();if(cfg.bgAudio)ev.target.unMute();else ev.target.mute()},
-          onStateChange:ev=>{if(ev.data===0)ev.target.playVideo()}
+          onReady:ev=>{
+            ev.target.playVideo();
+            if(cfg.bgAudio)ev.target.unMute();else ev.target.mute();
+            try{ev.target.unloadModule('captions')}catch(e){}
+            try{ev.target.setOption('captions','track',{})}catch(e){}
+          },
+          onStateChange:ev=>{
+            if(ev.data===0)ev.target.playVideo();
+            try{ev.target.unloadModule('captions')}catch(e){}
+          }
         }
       });
     }catch(e){console.warn('[yt bg init]',e)}
