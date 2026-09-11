@@ -36,8 +36,8 @@ function extractFinal(t) {
 }
 
 function resolveKeys(env) {
-  let groqKey = env.GROQ_API_KEY || '';
-  let nvidiaKey = env.NVIDIA_API_KEY || '';
+  let groqKey = (env.GROQ_API_KEY || '').trim();
+  let nvidiaKey = (env.NVIDIA_API_KEY || '').trim();
 
   // Auto-detect misplaced key strings
   if (!groqKey && nvidiaKey.startsWith('gsk_')) {
