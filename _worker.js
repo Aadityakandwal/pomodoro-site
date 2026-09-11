@@ -10,11 +10,11 @@ function json(obj, status = 200) {
   });
 }
 
-const GROQ_MODELS = [
+// Active supported Groq fallback models (decommissioned models like mixtral-8x7b removed)
+const GROQ_FALLBACK_MODELS = [
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
-  'gemma2-9b-it',
-  'mixtral-8x7b-32768'
+  'gemma2-9b-it'
 ];
 
 /* Detect chain-of-thought leaking into visible output */
@@ -33,6 +33,22 @@ function getGroqKey(env) {
   return key;
 }
 
+async function fetchActiveGroqModels(groqKey) {
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { Authorization: 'Bearer ' + groqKey }
+    });
+    if (r.ok) {
+      const d = await r.json();
+      const list = (d.data || [])
+        .map(m => m.id)
+        .filter(id => !id.includes('whisper') && !id.includes('safetensors') && !id.includes('guard') && !id.includes('mixtral-8x7b'));
+      if (list.length) return list;
+    }
+  } catch (e) {}
+  return GROQ_FALLBACK_MODELS;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -40,19 +56,8 @@ export default {
 
     if (url.pathname === '/api/models') {
       if (!groqKey) return json({ error: 'No Groq API key configured in Cloudflare secrets (GROQ_API_KEY)' }, 500);
-
-      try {
-        const r = await fetch('https://api.groq.com/openai/v1/models', {
-          headers: { Authorization: 'Bearer ' + groqKey }
-        });
-        if (r.ok) {
-          const d = await r.json();
-          const list = (d.data || []).map(m => m.id).filter(id => !id.includes('whisper') && !id.includes('safetensors'));
-          return json({ models: list.length ? list : GROQ_MODELS, provider: 'groq' });
-        }
-      } catch (e) {}
-
-      return json({ models: GROQ_MODELS, provider: 'groq-fallback' });
+      const models = await fetchActiveGroqModels(groqKey);
+      return json({ models, provider: 'groq' });
     }
 
     if (url.pathname === '/api/chat') {
@@ -75,15 +80,16 @@ export default {
         content: String(m.content || '').slice(0, 3000)
       }));
 
-      const modelList = Array.from(new Set([
-        env.GROQ_MODEL,
-        ...GROQ_MODELS
-      ])).filter(Boolean);
+      // Fetch live models from Groq API directly so decommissioned models are NEVER queried!
+      let activeModels = await fetchActiveGroqModels(groqKey);
+      if (env.GROQ_MODEL && activeModels.includes(env.GROQ_MODEL)) {
+        activeModels = [env.GROQ_MODEL, ...activeModels.filter(m => m !== env.GROQ_MODEL)];
+      }
 
       let lastStatus = 0, lastDetail = '', lastModel = '';
       let extracted = null, extractedModel = null, leaks = 0;
 
-      for (const model of modelList) {
+      for (const model of activeModels) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
         try {
@@ -133,7 +139,7 @@ export default {
       }
 
       if (extracted) return json({ reply: extracted, model: 'Groq · ' + (extractedModel || 'llama-3.3-70b-versatile') });
-      return json({ error: 'Groq API Error (' + lastStatus + ' on ' + lastModel + ')', detail: lastDetail, tried: modelList }, 502);
+      return json({ error: 'Groq API Error (' + lastStatus + ' on ' + lastModel + ')', detail: lastDetail, tried: activeModels }, 502);
     }
 
     return env.ASSETS.fetch(request);
