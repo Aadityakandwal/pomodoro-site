@@ -90,8 +90,10 @@ export default {
       const origin = request.headers.get('Origin') || '';
       if (origin) {
         let oh = '';
-        try { oh = new URL(origin).host; } catch (e) { return json({ error: 'bad origin' }, 403); }
-        if (oh !== url.host) return json({ error: 'cross-origin blocked' }, 403);
+        try { oh = new URL(origin).host; } catch (e) { return json({ error: 'bad origin header: ' + origin }, 403); }
+        if (oh !== url.host && !oh.endsWith('.pages.dev') && !oh.includes('localhost') && !oh.includes('127.0.0.1')) {
+          return json({ error: 'cross-origin blocked: ' + oh + ' vs ' + url.host }, 403);
+        }
       }
 
       if (parseInt(request.headers.get('Content-Length') || '0', 10) > 32768)

@@ -1511,12 +1511,15 @@ async function aiSendText(text){
     const d=await r.json().catch(()=>({}));
     typingRow.remove();
     if(!r.ok||!d.reply){
+      const errDetail = (d && d.error) ? (d.error + (d.detail ? ' (' + d.detail + ')' : '')) : ('HTTP ' + r.status);
+      aiPush({role:'assistant',content:'**AI Error ('+r.status+'):** '+esc(errDetail),err:true,via:'API Diagnostic'});
       aiGenerateOfflineReply(text);
     } else {
       aiPush({role:'assistant',content:d.reply,via:d.model||'Groq AI'});
     }
   }catch(e){
     typingRow.remove();
+    aiPush({role:'assistant',content:'**Network Error:** '+esc(e.message||String(e)),err:true,via:'Network Diagnostic'});
     aiGenerateOfflineReply(text);
   }
   $('#aiSend').disabled=false;$('#aiInput').focus();
