@@ -1153,7 +1153,11 @@ function bgVideoSync(){
   }
   if(ytBgPlayer && ytWrap && ytWrap.classList.contains('on')){
     try{
-      if(typeof ytBgPlayer.playVideo==='function')ytBgPlayer.playVideo();
+      if(engine.running){
+        if(typeof ytBgPlayer.playVideo==='function')ytBgPlayer.playVideo();
+      }else{
+        if(typeof ytBgPlayer.pauseVideo==='function')ytBgPlayer.pauseVideo();
+      }
       if(cfg.bgAudio){
         if(typeof ytBgPlayer.unMute==='function')ytBgPlayer.unMute();
       }else{
@@ -1200,7 +1204,7 @@ function setMini(on){document.body.classList.toggle('mini',on);cfg.mini=on;saveC
   const b=$('#miniBtn');if(b)b.classList.toggle('active',on)}
 on('#miniBtn','click',()=>setMini(!document.body.classList.contains('mini')));
 on('#miniExpand','click',()=>setMini(false));
-on('#miniPlay','click',()=>{AudioKit.ensure();engine.running?engine.pause():engine.start();render();musicSync()});
+on('#miniPlay','click',()=>{AudioKit.ensure();engine.running?engine.pause():engine.start();render();musicSync();bgVideoSync()});
 
 /* ---------- corner triggers ---------- */
 on('#musicTrigger','click',()=>Drawer.toggle('drawerMusic'));
@@ -1294,7 +1298,9 @@ async function setYTBgMedia(ytId){
             try{ev.target.setOption('captions','track',{})}catch(e){}
           },
           onStateChange:ev=>{
-            if(ev.data===0||ev.data===2)ev.target.playVideo();
+            if(ev.data===0){
+              if(engine.running)ev.target.playVideo();
+            }
             try{ev.target.unloadModule('captions')}catch(e){}
           }
         }
@@ -1465,11 +1471,27 @@ addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)
 /* ---------- study coach ---------- */
 let aiHistory=[];try{aiHistory=JSON.parse(localStorage.getItem('pdoro.ai')||'[]')}catch(e){}
 const saveAI=()=>{try{localStorage.setItem('pdoro.ai',JSON.stringify(aiHistory.slice(-60)))}catch(e){}};
+function speakMayaText(text){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const cleanText = text.replace(/[\*\_`#]/g, '').replace(/•/g, '');
+  const utter = new SpeechSynthesisUtterance(cleanText);
+  utter.rate = 1.0;
+  utter.pitch = 1.25;
+  const voices = window.speechSynthesis.getVoices();
+  const femaleVoice = voices.find(v => /female|zira|samantha|victoria|karen|fiona|veena|google uk english female|microsoft zira/i.test(v.name));
+  if(femaleVoice) utter.voice = femaleVoice;
+  window.speechSynthesis.speak(utter);
+}
+if('speechSynthesis' in window && window.speechSynthesis.onvoiceschanged!==undefined){
+  window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();
+}
 function aiSystem(){
   const at=tasks.find(t=>t.id===activeTask&&!t.done);
   const s=loadStats(),t=todayISO(),d=(s.day&&s.day.date===t)?s.day:{count:0,min:0};
-  return 'You are "Maya", a warm, intelligent, and highly encouraging Nepali study coach inside Pomodoro d\'Oro. '+
-    'Rules: answers under ~180 words; empathetic, cheerful, structured tone; sprinkle subtle Nepali warmth (e.g. "Namaste!", "Keep going!", "Tapai le garna saknuhunchha!") naturally when helpful; when quizzing, ask ONE clear question; use short bullet points. '+
+  return 'You are "Maya", a sweet, warm, cheerful, and highly encouraging girl study coach and companion inside Pomodoro d\'Oro. '+
+    'Personality & Tone: Speak like a sweet, caring female study buddy. Express yourself with a warm, cheerful, enthusiastic girl vibe using cute encouraging emojis (✨, 🌸, 💕, 🍅, 📚, ☺️). Sprinkle subtle Nepali warmth (e.g. "Namaste!", "Keep going!", "Tapai le garna saknuhunchha!") naturally. '+
+    'Rules: answers under ~180 words; structured with short bullet points; when quizzing, ask ONE clear encouraging question. '+
     'Reply with ONLY the final answer — never show reasoning steps, drafts, or constraint checks. '+
     'Live context — current focus task: '+(at?at.text:'(none set)')+'; pomodoros done today: '+d.count+
     '; focus minutes today: '+d.min+'; distractions this session: '+sessionDistractions+'; timer phase: '+engine.phase+'.';
@@ -1491,14 +1513,23 @@ function aiRenderMsg(m){
     .replace(/\*([^\*]+)\*/g,'<i>$1</i>')
     .replace(/`([^`]+)`/g,'<code>$1</code>');
   h=h.split('\n').map(l=>l.replace(/^-\s+/,'• ')).join('<br>');
-  div.innerHTML=h+(m.via?`<div class="ai-via">via ${esc(m.via)}</div>`:'');
+  if(m.role!=='user' && !m.err && 'speechSynthesis' in window){
+    div.innerHTML=h+(m.via?`<div class="ai-via">via ${esc(m.via)}</div>`:'')+
+      `<br><button class="ai-speak-btn" title="Listen to Maya" style="margin-top:6px;background:none;border:none;cursor:pointer;font-size:0.72rem;opacity:0.8;color:var(--gold);display:inline-flex;align-items:center;gap:4px">🔊 Listen</button>`;
+    setTimeout(()=>{
+      const b=div.querySelector('.ai-speak-btn');
+      if(b)b.onclick=(e)=>{e.stopPropagation();speakMayaText(m.content)};
+    },0);
+  } else {
+    div.innerHTML=h+(m.via?`<div class="ai-via">via ${esc(m.via)}</div>`:'');
+  }
   row.appendChild(div);
   return row;
 }
 function aiRenderAll(){
   const box=$('#aiMsgs');box.innerHTML='';
   if(!aiHistory.length){
-    const welcome = {role:'assistant', content:'Namaste! 🙏 I\'m Maya, your study coach. Tell me what you\'re working on today, or tap a suggestion above to get started!'};
+    const welcome = {role:'assistant', content:'Namaste! 🌸 I\'m Maya, your sweet study coach & companion! 💕 Tell me what you\'re working on today, or tap a suggestion above and let\'s study together! ✨'};
     box.appendChild(aiRenderMsg(welcome));
     return;
   }
@@ -1519,34 +1550,34 @@ function aiGenerateOfflineReply(text){
   let reply='';
 
   if(lower.includes('explain')||lower.includes('simple terms')){
-    reply=`Namaste! 🙏 **${taskTitle}** is your primary focus right now.\n\n`+
-      `• **Core Concept:** Break "${taskTitle}" into tiny 25-minute steps.\n`+
-      `• **Current Session:** Stay focused on one single action item during this ${phase} session.\n`+
-      `• **Goal:** Clear all distractions until the chime sounds! Tapai le garna saknuhunchha!`;
+    reply=`Namaste! 🌸 **${taskTitle}** is your primary focus right now! ✨\n\n`+
+      `• **Core Concept:** Break "${taskTitle}" into cute 25-minute study bites 💕\n`+
+      `• **Current Session:** Stay focused on one single action item during this ${phase} session 🍅\n`+
+      `• **Goal:** Clear all distractions until our timer chimes! Tapai le garna saknuhunchha! 💖`;
   } else if(lower.includes('quiz')||lower.includes('question')){
     const questions=[
-      `What is the very next 5-minute action you need to take for **${taskTitle}**?`,
-      `What main distraction might pull you away from **${taskTitle}**, and how will you prevent it?`,
-      `In one sentence, what will completing **${taskTitle}** allow you to accomplish?`
+      `What is the very next 5-minute step you need to take for **${taskTitle}**? 🌸`,
+      `What main distraction might pull you away from **${taskTitle}**, and how will we block it? 💕`,
+      `In one sentence, what will completing **${taskTitle}** allow you to achieve? ✨`
     ];
     const q=questions[Math.floor(Math.random()*questions.length)];
-    reply=`**Question from Maya:** ${q}\n\n*Reply with your answer and keep your momentum going!*`;
+    reply=`**Question from Maya:** ${q}\n\n*Tell me your answer, bestie! You've got this! 💖*`;
   } else if(lower.includes('plan')||lower.includes('study plan')){
-    reply=`**3-Pomodoro Plan for "${taskTitle}":**\n\n`+
-      `• **Pomo 1:** Clear setup & outline. Draft the foundation without overthinking.\n`+
-      `• **Pomo 2:** Deep execution block. Complete the core heavy lifting.\n` +
-      `• **Pomo 3:** Review, polish, and verify.\n\n`+
-      `You've already completed **${d.count}** pomodoro(s) today (${d.min} mins). Keep it up! 💪`;
+    reply=`**3-Pomodoro Plan for "${taskTitle}":** 🌸✨\n\n`+
+      `• **Pomo 1:** Set up & outline. Draft the foundation smoothly 💕\n`+
+      `• **Pomo 2:** Deep focus block. Finish the main work! 📚\n` +
+      `• **Pomo 3:** Review & polish. 💖\n\n`+
+      `You've completed **${d.count}** pomodoro(s) today (${d.min} mins). I'm so proud of you! ✨`;
   } else if(lower.includes('distract')||lower.includes('refocus')||lower.includes('pep talk')){
-    reply=`Take a deep breath. 🧘✨\n\n`+
-      `• **Step 1:** Close all non-study tabs right now.\n`+
-      `• **Step 2:** Write down any distracting thoughts on paper to check later.\n`+
-      `• **Step 3:** Focus on **${taskTitle}** for just 5 minutes. The flow state will follow!\n\n`+
-      `*You've got this! Tapai le garna saknuhunchha!*`;
+    reply=`Take a soft, deep breath with me! 🧘‍♀️✨\n\n`+
+      `• **Step 1:** Close any extra tabs right now 🌸\n`+
+      `• **Step 2:** Write down random thoughts on a side notepad to check later 📝\n`+
+      `• **Step 3:** Let's focus on **${taskTitle}** for just 5 minutes. The flow state will follow! 💕\n\n`+
+      `*I believe in you! Tapai le garna saknuhunchha! 💖*`;
   } else {
-    reply=`Namaste! Great progress on **${taskTitle}**! You've completed **${d.count} pomodoro(s)** (${d.min} mins) today.\n\n`+
-      `• **Current Phase:** ${phase.toUpperCase()} mode.\n`+
-      `• **Maya's Tip:** Focus on one small step at a time. High quality focus beats long hours! What is your next micro-step?`;
+    reply=`Namaste! 🌸 Wonderful progress on **${taskTitle}**! You've completed **${d.count} pomodoro(s)** (${d.min} mins) today 💕\n\n`+
+      `• **Current Phase:** ${phase.toUpperCase()} mode ✨\n`+
+      `• **Maya's Tip:** Focus on one small step at a time! Quality focus beats long hours 🍅 What is our next micro-step?`;
   }
   aiPush({role:'assistant',content:reply,via:'Maya · offline coach'});
 }

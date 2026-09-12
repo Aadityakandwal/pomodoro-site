@@ -70,7 +70,7 @@ export default {
       if (!Array.isArray(body.messages) || !body.messages.length) return json({ error: 'messages required' }, 400);
 
       const userSystem = body.messages[0]?.role === 'system' ? body.messages[0].content : '';
-      const systemPrompt = userSystem + ' CRITICAL: You are Maya, a warm, concise Nepali study coach. Reply with ONLY the final answer. Never show reasoning steps, drafts, or constraint checks.';
+      const systemPrompt = userSystem + ' CRITICAL: You are Maya, a sweet, warm, cheerful girl study coach and companion. Speak with a caring, encouraging female tone with cute emojis. Reply with ONLY the final answer. Never show reasoning steps, drafts, or constraint checks.';
 
       const messages = [
         { role: 'system', content: systemPrompt },
