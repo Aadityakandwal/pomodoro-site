@@ -867,12 +867,19 @@ function classifyInput(v){v=(v||'').trim();if(!v)return'empty';if(parseSC(v))ret
 function pickAudioFile(files){const pref=['VBR MP3','MP3','Ogg Vorbis','AAC'];
   for(const f of pref){const h=(files||[]).find(x=>x&&x.format===f&&x.name);if(h)return h}
   return(files||[]).find(x=>/\.(mp3|ogg|m4a|wav)$/i.test(x.name||''))||null}
+async function audiusSearch(q){
+  try{
+    const r=await fetch('https://api.audius.co/v1/tracks/search?query='+encodeURIComponent(q)+'&app_name=POMODORO_DORO');
+    if(!r.ok)return[];const d=await r.json();
+    return(d.data||[]).slice(0,8).map(x=>({id:'AU'+x.id,kind:'audio',url:'https://api.audius.co/v1/tracks/'+x.id+'/stream?app_name=POMODORO_DORO',title:x.title+(x.user?.name?' · '+x.user.name:''),source:'Audius'}));
+  }catch(e){return[]}
+}
 async function iaSearch(q){const p=new URLSearchParams();p.set('q',q+' AND mediatype:(audio)');
   ['identifier','title','year'].forEach(f=>p.append('fl[]',f));
   p.set('rows','8');p.set('page','1');p.set('output','json');p.set('sort','downloads desc');
   const r=await fetch('https://archive.org/advancedsearch.php?'+p.toString());
   if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();
-  return(d.response?.docs||[]).map(x=>({iaId:x.identifier,title:Array.isArray(x.title)?x.title[0]:(x.title||x.identifier),year:x.year||''}))}
+  return(d.response?.docs||[]).map(x=>({id:'IA'+x.identifier,kind:'ia',iaId:x.identifier,title:Array.isArray(x.title)?x.title[0]:(x.title||x.identifier),year:x.year||'',source:'archive.org'}))}
 async function iaStreamUrl(id){const r=await fetch('https://archive.org/metadata/'+encodeURIComponent(id));
   if(!r.ok)throw new Error('HTTP '+r.status);const m=await r.json();const f=pickAudioFile(m.files);
   if(!f)throw new Error('no audio');return{url:'https://archive.org/download/'+encodeURIComponent(id)+'/'+encodeURIComponent(f.name),title:(m.metadata&&m.metadata.title)||''}}
@@ -900,7 +907,7 @@ function updateMusicTrigger(){const l=$('#musicTriggerLabel'),it=playlist[curInd
 function loadSCApi(){if(window.SC&&window.SC.Widget)return Promise.resolve();
   if(!scApi)scApi=new Promise(res=>{const s=document.createElement('script');s.src='https://w.soundcloud.com/player/api.js';s.onload=res;document.head.appendChild(s)});return scApi}
 function renderPlaylist(){const ul=$('#plList');if(!ul)return;
-  const icon=k=>k==='local'?'📁':k==='sc'?'☁':k==='yt'?'▶':'';
+  const icon=k=>k==='local'?'📁':k==='audio'?'🎵':k==='sc'?'☁':k==='yt'?'▶':'';
   ul.innerHTML=playlist.map((it,i)=>`<li data-i="${i}" class="${i===curIndex?'cur':''}"><span class="k">${icon(it.kind)}</span><span class="pl-t">${esc(it.title)}</span><button class="t-del" title="remove">✕</button></li>`).join('');
   const np=$('#npSection');if(np)np.hidden=curIndex<0;updateMusicTrigger()}
 async function playIndex(i){
@@ -909,7 +916,7 @@ async function playIndex(i){
   if(scWidget){try{scWidget.unbind&&scWidget.unbind(SC.Widget.Events.PLAY)}catch(e){}AudioKit.unregisterSCWidget();scWidget=null}
   audioEl.pause();audioEl.removeAttribute('src');audioEl.load();audioEl.loop=cfg.loop;
   const sr=$('#seekRow');if(sr)sr.style.display=(it.kind==='sc'||it.kind==='yt')?'none':'flex';
-  if(it.kind==='local'){setTitle(it.title,'your library');setStatus('');audioEl.src=it.url;
+  if(it.kind==='local'||it.kind==='audio'){setTitle(it.title,it.source||'your library');setStatus('');audioEl.src=it.url;
     try{await audioEl.play()}catch(e){setStatus('press ▶',true)}}
   else if(it.kind==='ia'){setTitle(it.title,'archive.org');setStatus('fetching…');
     try{const s=await iaStreamUrl(it.iaId);if(s.title)it.title=s.title;audioEl.src=s.url;setTitle(it.title,'archive.org');
@@ -976,17 +983,18 @@ async function go(){const v=$('#musicInput').value.trim();const kind=classifyInp
     try{const r=await fetch('https://soundcloud.com/oembed?format=json&url='+encodeURIComponent(v));if(r.ok){const d=await r.json();title=d.title||title}}catch(e){}
     playlist.push({id:'S'+Date.now().toString(36),kind:'sc',url:v,title});renderPlaylist();playIndex(playlist.length-1);
     $('#musicInput').value='';toast('soundcloud added');return}
-  const box=$('#results');box.hidden=false;box.innerHTML='<li class="empty">searching…</li>';
-  try{const docs=await iaSearch(v);
-    if(!docs.length){box.innerHTML='<li class="empty">nothing found — try another name</li>';return}
-    box.innerHTML=docs.map(d=>`<li data-ia="${esc(d.iaId)}" data-title="${esc(d.title)}"><div class="meta"><div class="t1">${esc(d.title)}</div><div class="t2">archive.org${d.year?' · '+esc(String(d.year)):''}</div></div><button class="add">play</button></li>`).join('')}
-  catch(e){box.innerHTML='<li class="empty">search failed — check connection</li>'}}
+  const box=$('#results');box.hidden=false;box.innerHTML='<li class="empty">searching music…</li>';
+  try{
+    const [auTracks,iaDocs]=await Promise.all([audiusSearch(v),iaSearch(v).catch(()=>[])]);
+    const items=[...auTracks,...iaDocs];
+    if(!items.length){box.innerHTML='<li class="empty">nothing found — try another name or paste a YouTube/SoundCloud link</li>';return}
+    box.innerHTML=items.map(d=>`<li data-item="${esc(JSON.stringify(d))}"><div class="meta"><div class="t1">${esc(d.title)}</div><div class="t2">${esc(d.source||'music')}${d.year?' · '+esc(String(d.year)):''}</div></div><button class="add">play</button></li>`).join('')
+  }catch(e){box.innerHTML='<li class="empty">search failed — check connection</li>'}}
 on('#goBtn','click',go);
 on('#musicInput','keydown',e=>{if(e.key==='Enter')go()});
-on('#results','click',e=>{const li=e.target.closest('li[data-ia]');if(!li)return;
-  const item={id:'IA'+li.dataset.ia,kind:'ia',iaId:li.dataset.ia,title:li.dataset.title};
-  if(!playlist.find(p=>p.id===item.id))playlist.push(item);
-  renderPlaylist();$('#results').hidden=true;playIndex(playlist.findIndex(p=>p.id===item.id))});
+on('#results','click',e=>{const li=e.target.closest('li[data-item]');if(!li)return;
+  try{const item=JSON.parse(li.dataset.item);if(!playlist.find(p=>p.id===item.id))playlist.push(item);
+    renderPlaylist();$('#results').hidden=true;playIndex(playlist.findIndex(p=>p.id===item.id))}catch(err){}});
 function idbOpen(){return new Promise((res,rej)=>{const rq=indexedDB.open('pdoro-music',1);
   rq.onupgradeneeded=()=>{if(!rq.result.objectStoreNames.contains('tracks'))rq.result.createObjectStore('tracks',{keyPath:'id'})};
   rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error)})}
