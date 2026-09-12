@@ -860,7 +860,8 @@ const AudioKit=(()=>{
 })();
 
 /* ---------- music sources ---------- */
-function parseYT(u){u=(u||'').trim();const m=u.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|music\.youtube\.com\/watch\?v=)([^"&?\/ ]{11})/i);return m?m[1]:(parseYTQuick(u)?u:null)}
+function parseSC(u){return /(?:soundcloud\.com|snd\.sc)/i.test(u||'');}
+function parseYT(u){u=(u||'').trim();const m=u.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/|music\.youtube\.com\/watch\?v=)([^"&?\/ ]{11})/i);return m?m[1]:(parseYTQuick(u)?u:null)}
 function parseYTQuick(u){return/(?:youtube\.com|youtu\.be|music\.youtube\.com)/i.test(u||'')}
 function classifyInput(v){v=(v||'').trim();if(!v)return'empty';if(parseSC(v))return'sc';if(parseYT(v))return'yt';return'search'}
 function pickAudioFile(files){const pref=['VBR MP3','MP3','Ogg Vorbis','AAC'];
