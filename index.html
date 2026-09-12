@@ -110,9 +110,9 @@ body[data-theme="light"] .custom-bg::after{background:linear-gradient(180deg,rgb
 .custom-bg-video-wrap{position:absolute;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none;z-index:0}
 .custom-bg-video-wrap.on{opacity:1}
 .custom-bg-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.yt-bg-wrap{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1s ease;z-index:0}
+.yt-bg-wrap{position:absolute;inset:0;width:100%;height:100%;pointer-events:none !important;user-select:none !important;overflow:hidden;opacity:0;transition:opacity 1s ease;z-index:0}
 .yt-bg-wrap.on{opacity:1}
-.yt-bg-wrap iframe{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-height:100vh;min-width:177.77vh;transform:translate(-50%,-50%) scale(1.42);pointer-events:none !important;border:none}
+.yt-bg-wrap iframe,.yt-bg-wrap *{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-height:100vh;min-width:177.77vh;transform:translate(-50%,-50%) scale(1.42);pointer-events:none !important;user-select:none !important;border:none}
 .custom-bg-video-wrap::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,6,8,var(--bg-darkness,.5)),rgba(10,6,8,calc(var(--bg-darkness,.5)*.44)) 42%,rgba(8,5,6,calc(var(--bg-darkness,.5)*1.36)))}
 body[data-theme="light"] .custom-bg-video-wrap::after{background:linear-gradient(180deg,rgba(255,250,240,calc(var(--bg-darkness,.5)*.7)),rgba(255,250,240,calc(var(--bg-darkness,.5)*.3)) 42%,rgba(240,227,207,calc(var(--bg-darkness,.5)*1.1)))}
 body.has-bg .sky,body.has-bg .haze-layer,body.has-bg .sun{opacity:0 !important}
@@ -963,7 +963,7 @@ async function playIndex(i){
 function musicSync(){if(curIndex<0||!cfg.sync)return;const k=curKind();
   if(k==='sc'&&scWidget){try{engine.running?scWidget.play():scWidget.pause()}catch(e){}}
   else if(k==='yt'){
-    if(cfg.ytAsBg&&ytBgPlayer){try{engine.running?(ytBgPlayer.playVideo&&ytBgPlayer.playVideo()):(ytBgPlayer.pauseVideo&&ytBgPlayer.pauseVideo())}catch(e){}}
+    if(cfg.ytAsBg&&ytBgPlayer){try{if(engine.running){if(ytBgPlayer.playVideo)ytBgPlayer.playVideo();if(cfg.bgAudio&&ytBgPlayer.unMute)ytBgPlayer.unMute()}else{if(ytBgPlayer.mute)ytBgPlayer.mute()}}catch(e){}}
   }
   else{try{engine.running?audioEl.play().catch(()=>{}):audioEl.pause()}catch(e){}}}
 audioEl.addEventListener('play',()=>{if(curKind()!=='sc'&&curKind()!=='yt'){setPlayingUI(true);updateMediaSession()}});
@@ -1220,11 +1220,11 @@ function bgVideoSync(){
     try{
       if(engine.running){
         if(typeof ytBgPlayer.playVideo==='function')ytBgPlayer.playVideo();
-      }else{
-        if(typeof ytBgPlayer.pauseVideo==='function')ytBgPlayer.pauseVideo();
-      }
-      if(cfg.bgAudio){
-        if(typeof ytBgPlayer.unMute==='function')ytBgPlayer.unMute();
+        if(cfg.bgAudio){
+          if(typeof ytBgPlayer.unMute==='function')ytBgPlayer.unMute();
+        }else{
+          if(typeof ytBgPlayer.mute==='function')ytBgPlayer.mute();
+        }
       }else{
         if(typeof ytBgPlayer.mute==='function')ytBgPlayer.mute();
       }
@@ -1317,7 +1317,7 @@ function loadYTApi(){
     ytApiPromise=new Promise(res=>{
       const oldReady=window.onYouTubeIframeAPIReady;
       window.onYouTubeIframeAPIReady=()=>{if(typeof oldReady==='function')oldReady();res()};
-      const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';
+      const s=document.createElement('script');s.src='https://www.youtube-nocookie.com/iframe_api';
       s.onload=()=>{if(window.YT&&window.YT.Player)res()};
       document.head.appendChild(s);
     });
@@ -1344,7 +1344,7 @@ async function setYTBgMedia(ytId){
   await loadYTApi();
   if(ytBgPlayer&&typeof ytBgPlayer.loadVideoById==='function'){
     try{
-      ytBgPlayer.loadVideoById({videoId:ytId});
+      ytBgPlayer.loadVideoById({videoId:ytId,host:'https://www.youtube-nocookie.com'});
       if(cfg.bgAudio)ytBgPlayer.unMute();else ytBgPlayer.mute();
       try{ytBgPlayer.unloadModule('captions')}catch(e){}
       try{ytBgPlayer.setOption('captions','track',{})}catch(e){}
@@ -1353,8 +1353,9 @@ async function setYTBgMedia(ytId){
   }else{
     try{
       ytBgPlayer=new YT.Player('ytBgPlayer',{
+        host:'https://www.youtube-nocookie.com',
         videoId:ytId,
-        playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,loop:1,playlist:ytId,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3,cc_load_policy:0,cc_lang_pref:'none'},
+        playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,loop:1,playlist:ytId,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3,cc_load_policy:0,autohide:1,showinfo:0,enablejsapi:1,origin:window.location.origin},
         events:{
           onReady:ev=>{
             ev.target.playVideo();
