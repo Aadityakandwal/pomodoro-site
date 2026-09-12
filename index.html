@@ -1317,7 +1317,7 @@ function loadYTApi(){
     ytApiPromise=new Promise(res=>{
       const oldReady=window.onYouTubeIframeAPIReady;
       window.onYouTubeIframeAPIReady=()=>{if(typeof oldReady==='function')oldReady();res()};
-      const s=document.createElement('script');s.src='https://www.youtube-nocookie.com/iframe_api';
+      const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';
       s.onload=()=>{if(window.YT&&window.YT.Player)res()};
       document.head.appendChild(s);
     });
@@ -1344,7 +1344,7 @@ async function setYTBgMedia(ytId){
   await loadYTApi();
   if(ytBgPlayer&&typeof ytBgPlayer.loadVideoById==='function'){
     try{
-      ytBgPlayer.loadVideoById({videoId:ytId,host:'https://www.youtube-nocookie.com'});
+      ytBgPlayer.loadVideoById(ytId);
       if(cfg.bgAudio)ytBgPlayer.unMute();else ytBgPlayer.mute();
       try{ytBgPlayer.unloadModule('captions')}catch(e){}
       try{ytBgPlayer.setOption('captions','track',{})}catch(e){}
@@ -1353,9 +1353,8 @@ async function setYTBgMedia(ytId){
   }else{
     try{
       ytBgPlayer=new YT.Player('ytBgPlayer',{
-        host:'https://www.youtube-nocookie.com',
         videoId:ytId,
-        playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,loop:1,playlist:ytId,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3,cc_load_policy:0,autohide:1,showinfo:0,enablejsapi:1,origin:window.location.origin},
+        playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,loop:1,playlist:ytId,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3,cc_load_policy:0,enablejsapi:1,origin:window.location.origin},
         events:{
           onReady:ev=>{
             ev.target.playVideo();
