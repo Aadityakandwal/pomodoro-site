@@ -60,6 +60,34 @@ export default {
       return json({ models, provider: 'groq' });
     }
 
+    if (url.pathname === '/api/yt-search') {
+      const q = url.searchParams.get('q') || '';
+      if (!q.trim()) return json({ results: [] });
+      try {
+        const upstream = await fetch('https://www.youtube.com/results?search_query=' + encodeURIComponent(q), {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+        });
+        const html = await upstream.text();
+        const results = [];
+        const reg = /"videoRenderer":{"videoId":"([^"]{11})".+?"title":{"runs":\[{"text":"([^"]+)"/g;
+        let m;
+        while ((m = reg.exec(html)) !== null && results.length < 8) {
+          if (!results.some(r => r.ytId === m[1])) {
+            results.push({
+              id: 'Y' + m[1],
+              kind: 'yt',
+              ytId: m[1],
+              title: m[2],
+              source: 'YouTube'
+            });
+          }
+        }
+        return json({ results });
+      } catch (e) {
+        return json({ results: [] });
+      }
+    }
+
     if (url.pathname === '/api/chat') {
       if (request.method !== 'POST') return json({ error: 'POST only' }, 405);
 
