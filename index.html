@@ -176,25 +176,7 @@ body.has-bg .sky,body.has-bg .haze-layer,body.has-bg .sun{opacity:0 !important}
 #knob{fill:var(--gold);filter:drop-shadow(0 0 6px var(--gold))}
 .tickdot{fill:var(--ink-20)}
 .dial-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;pointer-events:none}
-.state-flash{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(0.5);
-  width:64px;height:64px;border-radius:50%;background:color-mix(in oklab,var(--accent) 30%,rgba(14,10,12,0.78));
-  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid color-mix(in oklab,var(--accent) 60%,transparent);
-  display:grid;place-items:center;color:var(--ink);opacity:0;pointer-events:none;
-  box-shadow:0 0 28px color-mix(in oklab,var(--accent) 50%,transparent);
-  will-change:transform,opacity;z-index:10}
-.state-flash svg{width:24px;height:24px;fill:currentColor;stroke:none}
-.state-flash.flash-play{animation:statePulsePlay .65s cubic-bezier(0.16,1,0.3,1) forwards}
-.state-flash.flash-pause{animation:statePulsePause .65s cubic-bezier(0.16,1,0.3,1) forwards}
-@keyframes statePulsePlay{
-  0%{opacity:0;transform:translate(-50%,-50%) scale(0.4)}
-  40%{opacity:0.95;transform:translate(-50%,-50%) scale(1.15)}
-  100%{opacity:0;transform:translate(-50%,-50%) scale(1.4)}
-}
-@keyframes statePulsePause{
-  0%{opacity:0;transform:translate(-50%,-50%) scale(0.4)}
-  40%{opacity:0.95;transform:translate(-50%,-50%) scale(1.1)}
-  100%{opacity:0;transform:translate(-50%,-50%) scale(1.35)}
-}
+
 .time{font-weight:300;font-size:clamp(4.5rem,17vw,8rem);letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1;transition:transform .3s cubic-bezier(0.16,1,0.3,1);will-change:transform}
 .time.time-bump{transform:scale(1.04)}
 .cycle-note{font-size:.62rem;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-40)}
@@ -503,9 +485,7 @@ body.idle{cursor:none}
         <circle id="knob" cx="180" cy="22" r="6" opacity="0"/>
       </svg>
       <div class="dial-center">
-        <div class="state-flash" id="stateFlash" aria-hidden="true">
-          <svg id="stateFlashIco" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        </div>
+
         <div class="time" id="timeText">25:00</div>
         <div class="cycle-note" id="cycleNote">pomodoro 1 of 4</div>
       </div>
@@ -1261,28 +1241,7 @@ engine.on('complete',done=>{AudioKit.chime();
     if(at){at.pomos=(at.pomos||0)+1;saveTasks();renderTasks()}}
   if(cfg.auto)setTimeout(()=>{if(!engine.running)engine.start()},1400)});
 
-function triggerStateAnim(running){
-  const flash=$('#stateFlash'),ico=$('#stateFlashIco'),timeEl=$('#timeText');
-  if(!flash||!ico)return;
-  flash.classList.remove('flash-play','flash-pause');
-  void flash.offsetWidth;
-  if(running){
-    ico.innerHTML='<path d="M8 5v14l11-7z"/>';
-    flash.classList.add('flash-play');
-  }else{
-    ico.innerHTML='<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
-    flash.classList.add('flash-pause');
-  }
-  setTimeout(()=>{
-    flash.classList.remove('flash-play','flash-pause');
-  },450);
-  if(timeEl){
-    timeEl.classList.add('time-bump');
-    setTimeout(()=>timeEl.classList.remove('time-bump'),250);
-  }
-}
-
-on('#startBtn','click',()=>{AudioKit.ensure();engine.running?engine.pause():engine.start();triggerStateAnim(engine.running);AudioKit.blip(engine.running?880:520);render();musicSync();bgVideoSync()});
+on('#startBtn','click',()=>{AudioKit.ensure();engine.running?engine.pause():engine.start();AudioKit.blip(engine.running?880:520);render();musicSync();bgVideoSync()});
 on('#resetBtn','click',()=>{engine.reset();render();bgVideoSync();toast('reset')});
 on('#skipBtn','click',()=>{engine.skip();render();bgVideoSync();toast('skipped')});
 
@@ -1310,7 +1269,7 @@ function setMini(on){document.body.classList.toggle('mini',on);cfg.mini=on;saveC
   const b=$('#miniBtn');if(b)b.classList.toggle('active',on)}
 on('#miniBtn','click',()=>setMini(!document.body.classList.contains('mini')));
 on('#miniExpand','click',()=>setMini(false));
-on('#miniPlay','click',()=>{AudioKit.ensure();engine.running?engine.pause():engine.start();triggerStateAnim(engine.running);render();musicSync();bgVideoSync()});
+on('#miniPlay','click',()=>{AudioKit.ensure();engine.running?engine.pause():engine.start();render();musicSync();bgVideoSync()});
 
 /* ---------- corner triggers ---------- */
 on('#musicTrigger','click',()=>Drawer.toggle('drawerMusic'));
